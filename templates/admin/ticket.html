@@ -89,8 +89,9 @@
         <div class="ticket-footer">VIP Promotions &middot; {{ reservation.reference_code }}</div>
     </div>
 
-    <div class="no-print">
+    <div class="no-print" style="display: flex; gap: 10px; justify-content: center;">
         <a href="javascript:window.print()">Print Ticket</a>
+        <a href="{{ url_for('admin_event_detail', event_id=event.id) }}" style="background: #555;">Back to Event</a>
     </div>
 
     <script>window.onload = function() { window.print(); };</script>

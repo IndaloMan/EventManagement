@@ -45,6 +45,8 @@ class Admin(UserMixin, db.Model):
     phone = db.Column(db.String(30))
     role = db.Column(db.String(20), nullable=False, default='event_manager')
     is_active_admin = db.Column(db.Boolean, default=True)
+    reset_token = db.Column(db.String(64))
+    reset_token_expires = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     businesses = db.relationship('Business', secondary=admin_businesses, backref='admins')
     managed_events = db.relationship('Event', secondary=event_managers, backref='managers')
@@ -55,40 +57,57 @@ class Admin(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+    ROLE_HIERARCHY = ['cashier', 'event_security', 'event_manager', 'owner', 'global_admin']
+
+    @property
+    def role_level(self):
+        try:
+            return self.ROLE_HIERARCHY.index(self.role)
+        except ValueError:
+            return -1
+
     @property
     def is_global_admin(self):
         return self.role == 'global_admin'
 
     @property
     def is_owner(self):
-        return self.role == 'owner'
+        return self.role_level >= self.ROLE_HIERARCHY.index('owner')
 
     @property
     def is_event_manager(self):
-        return self.role == 'event_manager'
+        return self.role_level >= self.ROLE_HIERARCHY.index('event_manager')
 
     @property
     def is_event_security(self):
-        return self.role == 'event_security'
+        return self.role_level >= self.ROLE_HIERARCHY.index('event_security')
+
+    @property
+    def is_cashier(self):
+        return self.role_level >= self.ROLE_HIERARCHY.index('cashier')
+
+    @property
+    def role_exact(self):
+        return self.role
 
     def can_access_business(self, business):
         if self.is_global_admin:
             return True
-        if self.is_owner:
+        if self.role == 'owner':
             return business in self.businesses
         return any(e.business_id == business.id for e in self.managed_events)
 
     def can_access_event(self, event):
         if self.is_global_admin:
             return True
-        if self.is_owner:
+        if self.role == 'owner':
             return event.business in self.businesses
         return event in self.managed_events
 
     def get_accessible_businesses(self):
         if self.is_global_admin:
             return Business.query.filter_by(is_active=True).all()
-        if self.is_owner:
+        if self.role == 'owner':
             return [b for b in self.businesses if b.is_active]
         business_ids = {e.business_id for e in self.managed_events}
         return Business.query.filter(Business.id.in_(business_ids)).all()
@@ -96,7 +115,7 @@ class Admin(UserMixin, db.Model):
     def get_accessible_events(self):
         if self.is_global_admin:
             return Event.query.order_by(Event.start_time.desc()).all()
-        if self.is_owner:
+        if self.role == 'owner':
             biz_ids = [b.id for b in self.businesses]
             return Event.query.filter(Event.business_id.in_(biz_ids)).order_by(Event.start_time.desc()).all()
         return list(self.managed_events)

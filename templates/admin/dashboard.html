@@ -15,7 +15,7 @@
 </div>
 
 <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
-    {% if not current_user.is_event_manager %}
+    {% if current_user.role_exact in ('global_admin', 'owner') %}
     <a href="{{ url_for('admin_sync_events') }}" class="btn btn-primary btn-sm" style="flex: 1;">Sync Calendar</a>
     {% endif %}
     <a href="{{ url_for('admin_events') }}" class="btn btn-surface btn-sm" style="flex: 1;">All Events</a>

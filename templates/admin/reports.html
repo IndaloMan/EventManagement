@@ -52,4 +52,8 @@
 {% if not report_data %}
 <p style="color: var(--text3); font-size: 0.85rem; text-align: center; padding: 20px;">No events to report on.</p>
 {% endif %}
+
+<div style="margin-top: 16px;">
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-surface" style="width: 100%;">Back to Dashboard</a>
+</div>
 {% endblock %}

@@ -88,7 +88,10 @@
         </div>
     </div>
 
-    <button type="submit" class="btn btn-success">Create Event</button>
+    <div class="btn-row" style="margin-top: 16px;">
+        <button type="submit" class="btn btn-success" style="flex: 1;">Create Event</button>
+        <a href="{{ url_for('admin_events') }}" class="btn btn-surface" style="flex: 1;">Cancel</a>
+    </div>
 </form>
 
 <script>

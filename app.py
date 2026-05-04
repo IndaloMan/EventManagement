@@ -2,6 +2,8 @@
 
 import env  # noqa: F401
 import os
+import re
+import uuid
 from functools import wraps
 from datetime import datetime, timedelta
 from flask import (Flask, render_template, request, redirect, url_for,
@@ -13,7 +15,7 @@ from config import Config
 from models import db, Admin, Business, Event, Reservation, ReservationLog, event_managers
 from calendar_sync import fetch_upcoming_events
 from qr_generator import generate_event_qr, generate_reference_qr_base64
-from email_sender import send_confirmation_email
+from email_sender import send_confirmation_email, send_password_reset_email
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -48,7 +50,7 @@ def owner_or_above(f):
     @wraps(f)
     @login_required
     def decorated(*args, **kwargs):
-        if current_user.is_event_manager or current_user.is_event_security:
+        if current_user.role_exact not in ('global_admin', 'owner'):
             abort(403)
         return f(*args, **kwargs)
     return decorated
@@ -181,8 +183,10 @@ def admin_login():
         admin = Admin.query.filter_by(username=username).first()
         if admin and admin.check_password(password):
             login_user(admin)
-            if admin.is_event_security:
+            if admin.role_exact == 'event_security':
                 return redirect(url_for('admin_scan'))
+            if admin.role_exact == 'cashier':
+                return redirect(url_for('admin_reservations'))
             return redirect(url_for('admin_dashboard'))
         flash('Invalid username or password.', 'error')
 
@@ -194,6 +198,49 @@ def admin_login():
 def admin_logout():
     logout_user()
     return redirect(url_for('admin_login'))
+
+
+@app.route('/admin/forgot-password', methods=['GET', 'POST'])
+def admin_forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        admin = Admin.query.filter(Admin.username.ilike(email)).first()
+        if admin and admin.is_active_admin:
+            token = uuid.uuid4().hex
+            admin.reset_token = token
+            admin.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
+            db.session.commit()
+            reset_url = f"{app.config['APP_URL']}/admin/reset-password/{token}"
+            send_password_reset_email(app.config, email, reset_url)
+        flash('If an account with that email exists, a reset link has been sent.', 'success')
+        return redirect(url_for('admin_login'))
+    return render_template('admin/forgot_password.html')
+
+
+@app.route('/admin/reset-password/<token>', methods=['GET', 'POST'])
+def admin_reset_password(token):
+    admin = Admin.query.filter_by(reset_token=token).first()
+    if not admin or not admin.reset_token_expires or admin.reset_token_expires < datetime.utcnow():
+        flash('This reset link is invalid or has expired.', 'error')
+        return redirect(url_for('admin_login'))
+
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        confirm = request.form.get('confirm_password', '')
+        if not password:
+            flash('Password is required.', 'error')
+            return render_template('admin/reset_password.html', token=token)
+        if password != confirm:
+            flash('Passwords do not match.', 'error')
+            return render_template('admin/reset_password.html', token=token)
+        admin.set_password(password)
+        admin.reset_token = None
+        admin.reset_token_expires = None
+        db.session.commit()
+        flash('Password updated. Please sign in.', 'success')
+        return redirect(url_for('admin_login'))
+
+    return render_template('admin/reset_password.html', token=token)
 
 
 # ---------------------------------------------------------------------------
@@ -307,7 +354,7 @@ def admin_users():
         users = Admin.query.order_by(Admin.name).all()
     else:
         users = Admin.query.filter(
-            Admin.role.in_(['event_manager', 'event_security'])
+            Admin.role.in_(['event_manager', 'event_security', 'cashier'])
         ).order_by(Admin.name).all()
     return render_template('admin/users.html', users=users)
 
@@ -322,12 +369,20 @@ def admin_user_new():
         role = request.form.get('role', 'event_manager')
 
         if not current_user.is_global_admin:
-            if role not in ('event_manager', 'event_security'):
+            if role not in ('event_manager', 'event_security', 'cashier'):
                 role = 'event_manager'
 
         if not username or not name or not password:
             flash('Username, name and password are required.', 'error')
             return render_template('admin/user_form.html', user=None)
+
+        valid_username = re.match(
+            r'^[a-zA-Z0-9]+$|^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$',
+            username
+        )
+        if not valid_username:
+            flash('Username must be alphanumeric or a valid email address.', 'error')
+            return render_template('admin/user_form.html', user=None, businesses=Business.query.filter_by(is_active=True).all())
 
         if Admin.query.filter_by(username=username).first():
             flash('Username already taken.', 'error')
@@ -365,7 +420,7 @@ def admin_user_edit(user_id):
     if not user:
         abort(404)
 
-    if not current_user.is_global_admin and user.role not in ('event_manager', 'event_security'):
+    if not current_user.is_global_admin and user.role not in ('event_manager', 'event_security', 'cashier'):
         abort(403)
 
     if request.method == 'POST':
@@ -527,7 +582,7 @@ def admin_event_detail(event_id):
         abort(403)
 
     if request.method == 'POST':
-        if current_user.is_event_manager and event not in current_user.managed_events:
+        if current_user.role_exact == 'event_manager' and event not in current_user.managed_events:
             abort(403)
 
         event.price = float(request.form.get('price', 0))
@@ -543,11 +598,11 @@ def admin_event_detail(event_id):
             poster.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             event.poster_filename = filename
 
-        if not current_user.is_event_manager:
+        if current_user.role_exact in ('global_admin', 'owner'):
             event.managers.clear()
             for mid in request.form.getlist('manager_ids'):
                 mgr = db.session.get(Admin, int(mid))
-                if mgr and mgr.role in ('event_manager', 'event_security'):
+                if mgr and mgr.role in ('event_manager', 'event_security', 'cashier'):
                     event.managers.append(mgr)
 
         db.session.commit()
@@ -557,7 +612,7 @@ def admin_event_detail(event_id):
     reservations = Reservation.query.filter_by(event_id=event.id).order_by(
         Reservation.created_at.desc()).all()
     all_managers = Admin.query.filter(
-        Admin.role.in_(['event_manager', 'event_security']),
+        Admin.role.in_(['event_manager', 'event_security', 'cashier']),
         Admin.is_active_admin == True).all()
     return render_template('admin/event_detail.html',
                            event=event, reservations=reservations,

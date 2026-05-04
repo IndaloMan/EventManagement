@@ -58,7 +58,7 @@
         </div>
     </div>
 
-    {% if not current_user.is_event_manager %}
+    {% if current_user.role_exact in ('global_admin', 'owner') %}
     <div class="field-group">
         <p class="field-group-label">Event Managers</p>
         {% for mgr in all_managers %}
@@ -87,7 +87,10 @@
         </div>
     </div>
 
-    <button type="submit" class="btn btn-success">Save Changes</button>
+    <div class="btn-row" style="margin-top: 16px;">
+        <button type="submit" class="btn btn-success" style="flex: 1;">Save Changes</button>
+        <a href="{{ url_for('admin_events') }}" class="btn btn-surface" style="flex: 1;">Back</a>
+    </div>
 </form>
 
 <div style="margin-top: 16px;">

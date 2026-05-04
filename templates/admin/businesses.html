@@ -3,8 +3,9 @@
 {% block content %}
 <p class="section-title">Businesses</p>
 
-<div style="margin-bottom: 16px;">
+<div style="margin-bottom: 16px; display: flex; gap: 10px;">
     <a href="{{ url_for('admin_business_new') }}" class="btn btn-primary btn-sm">Add Business</a>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-surface btn-sm">Back to Dashboard</a>
 </div>
 
 {% for biz in businesses %}

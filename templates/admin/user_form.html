@@ -8,11 +8,14 @@
         <p class="field-group-label">Account</p>
         <div class="field-row">
             <label for="username">Username</label>
-            <input type="text" id="username" name="username" value="{{ user.username if user else '' }}" {% if user %}readonly style="color: var(--text3);"{% else %}required{% endif %}>
+            <input type="text" id="username" name="username" value="{{ user.username if user else '' }}" {% if user %}readonly style="color: var(--text3);"{% else %}required pattern="[a-zA-Z0-9]+|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"{% endif %} placeholder="Alphanumeric or email">
         </div>
         <div class="field-row">
             <label for="password">Password</label>
-            <input type="password" id="password" name="password" {% if not user %}required{% endif %} placeholder="{% if user %}Leave blank to keep current{% endif %}">
+            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                <input type="password" id="password" name="password" {% if not user %}required{% endif %} placeholder="{% if user %}Leave blank to keep current{% endif %}" style="flex: 1;">
+                <button type="button" id="toggle-pw" style="background: var(--surface2); border: none; color: var(--text2); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; white-space: nowrap;">Show</button>
+            </div>
         </div>
         <div class="field-row">
             <label for="name">Name</label>
@@ -28,21 +31,24 @@
         </div>
     </div>
 
-    {% if current_user.is_global_admin %}
+    {% if current_user.role_exact in ('global_admin', 'owner') %}
     <div class="field-group">
         <p class="field-group-label">Role</p>
         <div class="field-row">
             <label for="role">Role</label>
             <select id="role" name="role" onchange="toggleBusinesses(this.value)">
-                <option value="event_manager" {% if user and user.role == 'event_manager' %}selected{% endif %}>Event Manager</option>
-                <option value="event_security" {% if user and user.role == 'event_security' %}selected{% endif %}>Event Security</option>
-                <option value="owner" {% if user and user.role == 'owner' %}selected{% endif %}>Owner</option>
-                <option value="global_admin" {% if user and user.role == 'global_admin' %}selected{% endif %}>Global Admin</option>
+                <option value="cashier" {% if user and user.role_exact == 'cashier' %}selected{% endif %}>Cashier</option>
+                <option value="event_security" {% if user and user.role_exact == 'event_security' %}selected{% endif %}>Event Security</option>
+                <option value="event_manager" {% if user and user.role_exact == 'event_manager' %}selected{% endif %}>Event Manager</option>
+                {% if current_user.is_global_admin %}
+                <option value="owner" {% if user and user.role_exact == 'owner' %}selected{% endif %}>Owner</option>
+                <option value="global_admin" {% if user and user.role_exact == 'global_admin' %}selected{% endif %}>Global Admin</option>
+                {% endif %}
             </select>
         </div>
     </div>
 
-    <div id="business-select" class="field-group" style="{% if not user or user.role != 'owner' %}display: none;{% endif %}">
+    <div id="business-select" class="field-group" style="{% if not user or user.role_exact != 'owner' %}display: none;{% endif %}">
         <p class="field-group-label">Assigned Businesses</p>
         {% for biz in businesses %}
         <div class="field-row">
@@ -64,12 +70,21 @@
     </div>
     {% endif %}
 
-    <button type="submit" class="btn btn-success">{% if user %}Save Changes{% else %}Create User{% endif %}</button>
+    <div class="btn-row" style="margin-top: 16px;">
+        <button type="submit" class="btn btn-success" style="flex: 1;">{% if user %}Save Changes{% else %}Create User{% endif %}</button>
+        <a href="{{ url_for('admin_users') }}" class="btn btn-surface" style="flex: 1;">Cancel</a>
+    </div>
 </form>
 
 <script>
 function toggleBusinesses(role) {
     document.getElementById('business-select').style.display = role === 'owner' ? 'block' : 'none';
 }
+document.getElementById('toggle-pw').addEventListener('click', function() {
+    var pw = document.getElementById('password');
+    var show = pw.type === 'password';
+    pw.type = show ? 'text' : 'password';
+    this.textContent = show ? 'Hide' : 'Show';
+});
 </script>
 {% endblock %}

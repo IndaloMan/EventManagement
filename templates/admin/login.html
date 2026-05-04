@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Admin Login{% endblock %}
+{% block title %}VIP Promotions Login{% endblock %}
 {% block content %}
 <div class="login-container">
-    <p class="login-title">Admin Login</p>
+    <p class="login-title">VIP Promotions Login</p>
     <form method="POST" action="{{ url_for('admin_login') }}">
         <div class="field-group">
             <div class="field-row">
-                <label for="username">Username</label>
-                <input type="text" id="username" name="username" required autocomplete="username">
+                <label for="username">User</label>
+                <input type="text" id="username" name="username" required autocomplete="username" placeholder="Enter your email">
             </div>
             <div class="field-row">
                 <label for="password">Password</label>

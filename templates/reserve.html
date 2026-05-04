@@ -65,6 +65,9 @@
     </p>
     {% endif %}
 
-    <button type="submit" class="btn btn-success">Confirm Reservation</button>
+    <div class="btn-row" style="margin-top: 16px;">
+        <button type="submit" class="btn btn-success" style="flex: 1;">Confirm Reservation</button>
+        <a href="{{ url_for('business_events', slug=event.business.slug) }}" class="btn btn-surface" style="flex: 1;">Cancel</a>
+    </div>
 </form>
 {% endblock %}

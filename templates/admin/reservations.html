@@ -76,4 +76,8 @@
 {% else %}
 <p style="color: var(--text3); font-size: 0.85rem; text-align: center; padding: 20px;">No reservations match the selected filters.</p>
 {% endif %}
+
+<div style="margin-top: 16px;">
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-surface" style="width: 100%;">Back to Dashboard</a>
+</div>
 {% endblock %}

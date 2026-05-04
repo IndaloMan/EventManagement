@@ -65,6 +65,9 @@
     </div>
     {% endif %}
 
-    <button type="submit" class="btn btn-success">{% if business %}Save Changes{% else %}Create Business{% endif %}</button>
+    <div class="btn-row" style="margin-top: 16px;">
+        <button type="submit" class="btn btn-success" style="flex: 1;">{% if business %}Save Changes{% else %}Create Business{% endif %}</button>
+        <a href="{{ url_for('admin_businesses') }}" class="btn btn-surface" style="flex: 1;">Cancel</a>
+    </div>
 </form>
 {% endblock %}
