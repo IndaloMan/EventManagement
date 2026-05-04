@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Businesses — Admin{% endblock %}
+{% block content %}
+<p class="section-title">Businesses</p>
+
+<div style="margin-bottom: 16px;">
+    <a href="{{ url_for('admin_business_new') }}" class="btn btn-primary btn-sm">Add Business</a>
+</div>
+
+{% for biz in businesses %}
+<div class="card" onclick="this.classList.toggle('expanded')">
+    <div class="card-header">
+        <span class="card-title">
+            {% if not biz.is_active %}<span style="color: var(--text3);">[Inactive]</span> {% endif %}
+            {{ biz.name }}
+        </span>
+        <span class="card-meta">/b/{{ biz.slug }}</span>
+        <span class="card-chevron">&rsaquo;</span>
+    </div>
+    <div class="card-body">
+        {% if biz.address %}<p style="font-size: 0.85rem; color: var(--text2);">{{ biz.address }}</p>{% endif %}
+        {% if biz.phone %}<p style="font-size: 0.85rem; color: var(--text2);">{{ biz.phone }}</p>{% endif %}
+        {% if biz.website %}<p style="font-size: 0.85rem; color: var(--accent);">{{ biz.website }}</p>{% endif %}
+        <p style="font-size: 0.8rem; color: var(--text3); margin-top: 6px;">
+            {{ biz.events | length }} event(s) &middot;
+            {{ biz.admins | length }} admin(s)
+        </p>
+        <div class="btn-row">
+            <a href="{{ url_for('admin_business_edit', biz_id=biz.id) }}" class="btn btn-surface btn-sm" style="flex: 1;">Edit</a>
+            <a href="{{ url_for('business_events', slug=biz.slug) }}" class="btn btn-surface btn-sm" style="flex: 1;">Public Page</a>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

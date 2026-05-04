@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{% if business %}Edit {{ business.name }}{% else %}New Business{% endif %} — Admin{% endblock %}
+{% block content %}
+<p class="section-title">{% if business %}Edit Business{% else %}New Business{% endif %}</p>
+
+<form method="POST" enctype="multipart/form-data">
+    <div class="field-group">
+        <p class="field-group-label">Details</p>
+        <div class="field-row">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" value="{{ business.name if business else '' }}" required placeholder="e.g. Marina Club Gastrobar">
+        </div>
+        {% if not business %}
+        <div class="field-row">
+            <label for="slug">URL Slug</label>
+            <input type="text" id="slug" name="slug" placeholder="e.g. marina-club" required>
+        </div>
+        {% endif %}
+        <div class="field-row">
+            <label for="address">Address</label>
+            <input type="text" id="address" name="address" value="{{ business.address if business else '' }}" placeholder="Full address">
+        </div>
+        <div class="field-row">
+            <label for="phone">Phone</label>
+            <input type="tel" id="phone" name="phone" value="{{ business.phone if business else '' }}" placeholder="+34 ...">
+        </div>
+        <div class="field-row">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" value="{{ business.email if business else '' }}">
+        </div>
+        <div class="field-row">
+            <label for="website">Website</label>
+            <input type="url" id="website" name="website" value="{{ business.website if business else '' }}" placeholder="https://...">
+        </div>
+        <div class="field-row">
+            <label for="description">Description</label>
+            <textarea id="description" name="description" placeholder="Brief description">{{ business.description if business else '' }}</textarea>
+        </div>
+    </div>
+
+    <div class="field-group">
+        <p class="field-group-label">Google Calendar</p>
+        <div class="field-row">
+            <label for="google_calendar_id">Calendar ID</label>
+            <input type="text" id="google_calendar_id" name="google_calendar_id" value="{{ business.google_calendar_id if business else '' }}" placeholder="xxx@group.calendar.google.com">
+        </div>
+    </div>
+
+    <div class="field-group">
+        <p class="field-group-label">Logo</p>
+        <div style="padding: 14px;">
+            {% if business and business.logo_filename %}
+            <img src="{{ url_for('static', filename='uploads/' + business.logo_filename) }}" alt="Logo" style="max-height: 60px; border-radius: 8px; margin-bottom: 8px;">
+            {% endif %}
+            <input type="file" name="logo" accept="image/*" style="font-size: 0.85rem; color: var(--text2);">
+        </div>
+    </div>
+
+    {% if business %}
+    <div class="field-group">
+        <div class="field-row">
+            <label>Active</label>
+            <input type="checkbox" name="is_active" {% if business.is_active %}checked{% endif %} style="width: 20px; height: 20px;">
+        </div>
+    </div>
+    {% endif %}
+
+    <button type="submit" class="btn btn-success">{% if business %}Save Changes{% else %}Create Business{% endif %}</button>
+</form>
+{% endblock %}

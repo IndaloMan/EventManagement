@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ business.name }} — Events{% endblock %}
+{% block content %}
+<div style="margin-bottom: 16px;">
+    {% if business.logo_filename %}
+    <img src="{{ url_for('static', filename='uploads/' + business.logo_filename) }}" alt="{{ business.name }}" style="max-height: 48px; border-radius: 8px; margin-bottom: 8px;">
+    {% endif %}
+    <h2 style="font-size: 1.15rem; font-weight: 700;">{{ business.name }}</h2>
+    {% if business.address %}
+    <p style="font-size: 0.8rem; color: var(--text3); margin-top: 4px;">{{ business.address }}</p>
+    {% endif %}
+</div>
+
+<p class="section-title">Upcoming Events</p>
+
+{% if events %}
+{% for event in events %}
+<div class="card" onclick="this.classList.toggle('expanded')">
+    <div class="card-header">
+        <span class="card-title">{{ event.title }}</span>
+        <span class="card-meta">{{ event.start_time.strftime('%d %b %Y') }}</span>
+        <span class="card-chevron">&rsaquo;</span>
+    </div>
+    <div class="card-body">
+        {% if event.poster_filename %}
+        <img src="{{ url_for('static', filename='uploads/' + event.poster_filename) }}" alt="{{ event.title }}" class="event-poster">
+        {% endif %}
+
+        <div class="event-detail">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            {{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}{% if event.end_time %} — {{ event.end_time.strftime('%H:%M') }}{% endif %}
+        </div>
+
+        {% if event.location %}
+        <div class="event-detail">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            {{ event.location }}
+        </div>
+        {% endif %}
+
+        {% if event.includes %}
+        <div class="event-detail">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            {{ event.includes }}
+        </div>
+        {% endif %}
+
+        {% if event.dress_code %}
+        <div class="event-detail">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            {{ event.dress_code }}
+        </div>
+        {% endif %}
+
+        {% if event.price > 0 %}
+        <div class="event-price">&euro;{{ "%.2f"|format(event.price) }} per person</div>
+        {% else %}
+        <div class="event-price">Free entry</div>
+        {% endif %}
+
+        {% if event.is_sold_out %}
+        <p class="event-sold-out">SOLD OUT</p>
+        {% elif event.max_capacity > 0 %}
+        <p class="event-tickets">{{ event.tickets_available }} tickets remaining</p>
+        {% endif %}
+
+        {% if event.description %}
+        <p style="font-size: 0.85rem; color: var(--text2); margin: 8px 0;">{{ event.description }}</p>
+        {% endif %}
+
+        {% if not event.is_sold_out %}
+        <a href="{{ url_for('reserve', event_id=event.id) }}" class="btn btn-primary" style="margin-top: 12px;">Reserve Tickets</a>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div style="text-align: center; padding: 40px 0; color: var(--text3);">
+    <p style="font-size: 1.1rem; font-weight: 600;">No upcoming events</p>
+    <p style="font-size: 0.85rem; margin-top: 6px;">Check back soon!</p>
+</div>
+{% endif %}
+{% endblock %}

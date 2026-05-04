@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}{{ event.title }} — Admin{% endblock %}
+{% block content %}
+<p class="section-title">Event Configuration</p>
+
+<form method="POST" action="{{ url_for('admin_event_detail', event_id=event.id) }}" enctype="multipart/form-data">
+    <div class="field-group">
+        <p class="field-group-label">From Google Calendar</p>
+        <div class="field-row">
+            <label>Business</label>
+            <span style="font-size: 0.95rem;">{{ event.business.name }}</span>
+        </div>
+        <div class="field-row">
+            <label>Title</label>
+            <span style="font-size: 0.95rem;">{{ event.title }}</span>
+        </div>
+        <div class="field-row">
+            <label>Date</label>
+            <span style="font-size: 0.95rem;">{{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}</span>
+        </div>
+        <div class="field-row">
+            <label>Location</label>
+            <span style="font-size: 0.95rem;">{{ event.location or '—' }}</span>
+        </div>
+    </div>
+
+    <div class="field-group">
+        <p class="field-group-label">Ticket Settings</p>
+        <div class="field-row">
+            <label for="price">Price (&euro;)</label>
+            <input type="number" id="price" name="price" step="0.01" min="0" value="{{ event.price or 0 }}">
+        </div>
+        <div class="field-row">
+            <label for="max_capacity">Capacity</label>
+            <input type="number" id="max_capacity" name="max_capacity" min="0" value="{{ event.max_capacity or 0 }}" placeholder="0 = unlimited">
+        </div>
+        <div class="field-row">
+            <label for="includes">Includes</label>
+            <input type="text" id="includes" name="includes" value="{{ event.includes or '' }}" placeholder="e.g. Food & drink inclusive">
+        </div>
+        <div class="field-row">
+            <label for="dress_code">Dress code</label>
+            <input type="text" id="dress_code" name="dress_code" value="{{ event.dress_code or '' }}" placeholder="e.g. Dress to Impress">
+        </div>
+        <div class="field-row">
+            <label>Active</label>
+            <input type="checkbox" name="is_active" {% if event.is_active %}checked{% endif %} style="width: 20px; height: 20px;">
+        </div>
+    </div>
+
+    {% if not current_user.is_event_manager %}
+    <div class="field-group">
+        <p class="field-group-label">Event Managers</p>
+        {% for mgr in all_managers %}
+        <div class="field-row">
+            <label>{{ mgr.name }}</label>
+            <input type="checkbox" name="manager_ids" value="{{ mgr.id }}"
+                   {% if mgr in event.managers %}checked{% endif %}
+                   style="width: 20px; height: 20px;">
+        </div>
+        {% endfor %}
+        {% if not all_managers %}
+        <div class="field-row">
+            <span style="font-size: 0.85rem; color: var(--text3);">No event managers created yet</span>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="field-group">
+        <p class="field-group-label">Event Poster</p>
+        <div style="padding: 14px;">
+            {% if event.poster_filename %}
+            <img src="{{ url_for('static', filename='uploads/' + event.poster_filename) }}" alt="Poster" class="event-poster">
+            {% endif %}
+            <input type="file" name="poster" accept="image/*" style="font-size: 0.85rem; color: var(--text2); margin-top: 8px;">
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-success">Save Changes</button>
+</form>
+
+<div style="margin-top: 16px;">
+    <a href="{{ url_for('admin_generate_qr', event_id=event.id) }}" class="btn btn-primary">Download QR Code</a>
+</div>
+
+<p class="section-title" style="margin-top: 24px;">Reservations ({{ reservations | length }})</p>
+
+{% if reservations %}
+<div class="field-group" style="overflow-x: auto;">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>Ref</th>
+                <th>Name</th>
+                <th>Tickets</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in reservations %}
+            <tr>
+                <td style="font-weight: 600; color: var(--accent);">{{ r.reference_code }}</td>
+                <td>
+                    {{ r.name }}
+                    {% if r.phone %}<br><span style="font-size: 0.75rem; color: var(--text3);">{{ r.phone }}</span>{% endif %}
+                </td>
+                <td>{{ r.num_tickets }}</td>
+                <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
+                <td>
+                    {% if r.status == 'pending' %}
+                    <form method="POST" action="{{ url_for('admin_update_reservation', res_id=r.id) }}" style="display: inline;">
+                        <input type="hidden" name="status" value="paid">
+                        <button type="submit" class="btn btn-sm" style="background: var(--accent2); padding: 5px 10px;">Paid</button>
+                    </form>
+                    {% endif %}
+                    {% if r.status != 'cancelled' %}
+                    <form method="POST" action="{{ url_for('admin_update_reservation', res_id=r.id) }}" style="display: inline;">
+                        <input type="hidden" name="status" value="cancelled">
+                        <button type="submit" class="btn btn-sm" style="background: var(--danger); padding: 5px 10px;">Cancel</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p style="color: var(--text3); font-size: 0.85rem;">No reservations yet.</p>
+{% endif %}
+{% endblock %}

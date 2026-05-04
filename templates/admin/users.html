@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Users — Admin{% endblock %}
+{% block content %}
+<p class="section-title">Users</p>
+
+<div style="margin-bottom: 16px;">
+    <a href="{{ url_for('admin_user_new') }}" class="btn btn-primary btn-sm">Add User</a>
+</div>
+
+{% for user in users %}
+<div class="card" onclick="this.classList.toggle('expanded')">
+    <div class="card-header">
+        <span class="card-title">
+            {% if not user.is_active_admin %}<span style="color: var(--text3);">[Inactive]</span> {% endif %}
+            {{ user.name }}
+        </span>
+        <span class="card-meta">{{ user.role.replace('_', ' ').title() }}</span>
+        <span class="card-chevron">&rsaquo;</span>
+    </div>
+    <div class="card-body">
+        <p style="font-size: 0.85rem; color: var(--text2);">{{ user.username }}</p>
+        {% if user.email %}<p style="font-size: 0.85rem; color: var(--text3);">{{ user.email }}</p>{% endif %}
+        {% if user.is_owner %}
+        <p style="font-size: 0.8rem; color: var(--text3); margin-top: 4px;">
+            Businesses: {{ user.businesses | map(attribute='name') | join(', ') or 'None assigned' }}
+        </p>
+        {% endif %}
+        {% if user.is_event_manager %}
+        <p style="font-size: 0.8rem; color: var(--text3); margin-top: 4px;">
+            Events: {{ user.managed_events | map(attribute='title') | join(', ') or 'None assigned' }}
+        </p>
+        {% endif %}
+        <div class="btn-row">
+            <a href="{{ url_for('admin_user_edit', user_id=user.id) }}" class="btn btn-surface btn-sm">Edit</a>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

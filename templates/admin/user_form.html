@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{% if user %}Edit {{ user.name }}{% else %}New User{% endif %} — Admin{% endblock %}
+{% block content %}
+<p class="section-title">{% if user %}Edit User{% else %}New User{% endif %}</p>
+
+<form method="POST">
+    <div class="field-group">
+        <p class="field-group-label">Account</p>
+        <div class="field-row">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" value="{{ user.username if user else '' }}" {% if user %}readonly style="color: var(--text3);"{% else %}required{% endif %}>
+        </div>
+        <div class="field-row">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" {% if not user %}required{% endif %} placeholder="{% if user %}Leave blank to keep current{% endif %}">
+        </div>
+        <div class="field-row">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" value="{{ user.name if user else '' }}" required>
+        </div>
+        <div class="field-row">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" value="{{ user.email if user else '' }}">
+        </div>
+        <div class="field-row">
+            <label for="phone">Phone</label>
+            <input type="tel" id="phone" name="phone" value="{{ user.phone if user else '' }}">
+        </div>
+    </div>
+
+    {% if current_user.is_global_admin %}
+    <div class="field-group">
+        <p class="field-group-label">Role</p>
+        <div class="field-row">
+            <label for="role">Role</label>
+            <select id="role" name="role" onchange="toggleBusinesses(this.value)">
+                <option value="event_manager" {% if user and user.role == 'event_manager' %}selected{% endif %}>Event Manager</option>
+                <option value="owner" {% if user and user.role == 'owner' %}selected{% endif %}>Owner</option>
+                <option value="global_admin" {% if user and user.role == 'global_admin' %}selected{% endif %}>Global Admin</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="business-select" class="field-group" style="{% if not user or user.role != 'owner' %}display: none;{% endif %}">
+        <p class="field-group-label">Assigned Businesses</p>
+        {% for biz in businesses %}
+        <div class="field-row">
+            <label>{{ biz.name }}</label>
+            <input type="checkbox" name="business_ids" value="{{ biz.id }}"
+                   {% if user and biz in user.businesses %}checked{% endif %}
+                   style="width: 20px; height: 20px;">
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if user %}
+    <div class="field-group">
+        <div class="field-row">
+            <label>Active</label>
+            <input type="checkbox" name="is_active_admin" {% if user.is_active_admin %}checked{% endif %} style="width: 20px; height: 20px;">
+        </div>
+    </div>
+    {% endif %}
+
+    <button type="submit" class="btn btn-success">{% if user %}Save Changes{% else %}Create User{% endif %}</button>
+</form>
+
+<script>
+function toggleBusinesses(role) {
+    document.getElementById('business-select').style.display = role === 'owner' ? 'block' : 'none';
+}
+</script>
+{% endblock %}

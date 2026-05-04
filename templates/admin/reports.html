@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Reports — Marina Club Events{% endblock %}
+{% block content %}
+<p class="section-title">Event Reports</p>
+
+{% for data in report_data %}
+<div class="card" onclick="this.classList.toggle('expanded')">
+    <div class="card-header">
+        <span class="card-title">{{ data.event.title }}</span>
+        <span class="card-meta">{{ data.event.start_time.strftime('%d %b %Y') }}</span>
+        <span class="card-chevron">&rsaquo;</span>
+    </div>
+    <div class="card-body">
+        <div class="stat-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ data.total_reserved }}</div>
+                <div class="stat-label">Reserved</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: var(--accent2);">{{ data.total_paid }}</div>
+                <div class="stat-label">Paid</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: var(--warning);">{{ data.total_pending }}</div>
+                <div class="stat-label">Pending</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: var(--danger);">{{ data.total_cancelled }}</div>
+                <div class="stat-label">Cancelled</div>
+            </div>
+        </div>
+
+        {% if data.event.max_capacity > 0 %}
+        <p style="font-size: 0.85rem; color: var(--text2); margin-bottom: 6px;">
+            Capacity: {{ data.total_reserved }} / {{ data.event.max_capacity }}
+            ({{ ((data.total_reserved / data.event.max_capacity) * 100) | int }}%)
+        </p>
+        {% endif %}
+
+        {% if data.event.price > 0 %}
+        <p style="font-size: 0.85rem; color: var(--text2);">
+            Revenue (paid): <span style="color: var(--accent2); font-weight: 600;">&euro;{{ "%.2f"|format(data.revenue) }}</span>
+        </p>
+        <p style="font-size: 0.85rem; color: var(--text2);">
+            Potential (pending): <span style="color: var(--warning);">&euro;{{ "%.2f"|format(data.total_pending * data.event.price) }}</span>
+        </p>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+
+{% if not report_data %}
+<p style="color: var(--text3); font-size: 0.85rem; text-align: center; padding: 20px;">No events to report on.</p>
+{% endif %}
+{% endblock %}

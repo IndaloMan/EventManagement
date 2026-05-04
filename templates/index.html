@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Marina Club Events{% endblock %}
+{% block content %}
+<p class="section-title">Venues</p>
+
+{% for business in businesses %}
+<a href="{{ url_for('business_events', slug=business.slug) }}" class="card" style="display: block; text-decoration: none; color: inherit;">
+    <div class="card-header">
+        <span class="card-title">{{ business.name }}</span>
+        <span class="card-chevron">&rsaquo;</span>
+    </div>
+</a>
+{% endfor %}
+
+{% if not businesses %}
+<div style="text-align: center; padding: 40px 0; color: var(--text3);">
+    <p style="font-size: 1.1rem; font-weight: 600;">No venues available</p>
+</div>
+{% endif %}
+{% endblock %}
