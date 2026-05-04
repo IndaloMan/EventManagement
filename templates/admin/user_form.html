@@ -35,6 +35,7 @@
             <label for="role">Role</label>
             <select id="role" name="role" onchange="toggleBusinesses(this.value)">
                 <option value="event_manager" {% if user and user.role == 'event_manager' %}selected{% endif %}>Event Manager</option>
+                <option value="event_security" {% if user and user.role == 'event_security' %}selected{% endif %}>Event Security</option>
                 <option value="owner" {% if user and user.role == 'owner' %}selected{% endif %}>Owner</option>
                 <option value="global_admin" {% if user and user.role == 'global_admin' %}selected{% endif %}>Global Admin</option>
             </select>

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Scan Ticket — Admin{% endblock %}
+{% block content %}
+<p class="section-title">Scan Ticket</p>
+
+<form method="GET" action="" id="scan-form">
+    <div class="field-group">
+        <div class="field-row">
+            <label for="ref">Reference</label>
+            <input type="text" id="ref" placeholder="Enter or scan code" autofocus maxlength="8" style="text-transform: uppercase;">
+        </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Look Up</button>
+</form>
+
+<script>
+document.getElementById('scan-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var ref = document.getElementById('ref').value.trim().toUpperCase();
+    if (ref) window.location.href = '/admin/scan/' + ref;
+});
+</script>
+{% endblock %}

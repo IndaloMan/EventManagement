@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}New Event — Admin{% endblock %}
+{% block content %}
+<p class="section-title">New Event</p>
+
+<form method="POST" enctype="multipart/form-data">
+    <div class="field-group">
+        <p class="field-group-label">Details</p>
+        <div class="field-row">
+            <label for="business_id">Business</label>
+            <select id="business_id" name="business_id" required>
+                <option value="">— Select —</option>
+                {% for biz in businesses %}
+                <option value="{{ biz.id }}">{{ biz.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="field-row">
+            <label for="title">Title</label>
+            <input type="text" id="title" name="title" required placeholder="e.g. Latin Night">
+        </div>
+        <div class="field-row">
+            <label for="start_date">Start date</label>
+            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                <input type="date" id="start_date" name="start_date" required style="flex: 1;">
+                <span id="start_day" style="font-size: 0.8rem; color: var(--accent); min-width: 30px;"></span>
+            </div>
+        </div>
+        <div class="field-row">
+            <label for="start_time_val">Start time</label>
+            <input type="time" id="start_time_val" name="start_time_val" required>
+        </div>
+        <div class="field-row">
+            <label>No fixed end</label>
+            <input type="checkbox" id="no_fixed_end" name="no_fixed_end" style="width: 20px; height: 20px;">
+        </div>
+        <div id="end_fixed_rows">
+            <div class="field-row">
+                <label for="end_date">End date</label>
+                <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                    <input type="date" id="end_date" name="end_date" style="flex: 1;">
+                    <span id="end_day" style="font-size: 0.8rem; color: var(--accent); min-width: 30px;"></span>
+                </div>
+            </div>
+            <div class="field-row">
+                <label for="end_time_val">End time</label>
+                <input type="time" id="end_time_val" name="end_time_val">
+            </div>
+        </div>
+        <div id="end_text_row" class="field-row" style="display: none;">
+            <label for="end_time_text">Displayed as</label>
+            <input type="text" id="end_time_text" name="end_time_text" value="Til late" placeholder="e.g. Til late">
+        </div>
+        <div class="field-row">
+            <label for="location">Location</label>
+            <input type="text" id="location" name="location" placeholder="e.g. Rooftop Terrace">
+        </div>
+        <div class="field-row">
+            <label for="description">Description</label>
+            <textarea id="description" name="description" placeholder="Event description"></textarea>
+        </div>
+    </div>
+
+    <div class="field-group">
+        <p class="field-group-label">Ticket Settings</p>
+        <div class="field-row">
+            <label for="price">Price (&euro;)</label>
+            <input type="number" id="price" name="price" step="0.01" min="0" value="0">
+        </div>
+        <div class="field-row">
+            <label for="max_capacity">Capacity</label>
+            <input type="number" id="max_capacity" name="max_capacity" min="0" value="0" placeholder="0 = unlimited">
+        </div>
+        <div class="field-row">
+            <label for="includes">Includes</label>
+            <input type="text" id="includes" name="includes" placeholder="e.g. Food & drink inclusive">
+        </div>
+        <div class="field-row">
+            <label for="dress_code">Dress code</label>
+            <input type="text" id="dress_code" name="dress_code" placeholder="e.g. Dress to Impress">
+        </div>
+    </div>
+
+    <div class="field-group">
+        <p class="field-group-label">Event Poster</p>
+        <div style="padding: 14px;">
+            <input type="file" name="poster" accept="image/*" style="font-size: 0.85rem; color: var(--text2);">
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-success">Create Event</button>
+</form>
+
+<script>
+var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+document.getElementById('start_date').addEventListener('change', function() {
+    var d = new Date(this.value + 'T00:00');
+    document.getElementById('start_day').textContent = isNaN(d) ? '' : days[d.getDay()];
+});
+document.getElementById('end_date').addEventListener('change', function() {
+    var d = new Date(this.value + 'T00:00');
+    document.getElementById('end_day').textContent = isNaN(d) ? '' : days[d.getDay()];
+});
+document.getElementById('no_fixed_end').addEventListener('change', function() {
+    document.getElementById('end_fixed_rows').style.display = this.checked ? 'none' : '';
+    document.getElementById('end_text_row').style.display = this.checked ? '' : 'none';
+});
+</script>
+{% endblock %}

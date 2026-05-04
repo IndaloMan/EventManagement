@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Ticket — {{ reservation.reference_code }}{% endblock %}
+{% block content %}
+<p class="section-title">Ticket Verification</p>
+
+<div class="field-group">
+    <div class="field-row">
+        <label>Reference</label>
+        <span style="font-size: 1.1rem; font-weight: 700; color: var(--accent);">{{ reservation.reference_code }}</span>
+    </div>
+    <div class="field-row">
+        <label>Name</label>
+        <span style="font-size: 0.95rem;">{{ reservation.name }}</span>
+    </div>
+    <div class="field-row">
+        <label>Event</label>
+        <span style="font-size: 0.95rem;">{{ event.title }}</span>
+    </div>
+    <div class="field-row">
+        <label>Venue</label>
+        <span style="font-size: 0.95rem;">{{ event.business.name }}</span>
+    </div>
+    <div class="field-row">
+        <label>Tickets</label>
+        <span style="font-size: 0.95rem;">{{ reservation.num_tickets }}</span>
+    </div>
+    <div class="field-row">
+        <label>Status</label>
+        <span class="badge badge-{{ reservation.status }}">{{ reservation.status }}</span>
+    </div>
+</div>
+
+{% if already_scanned %}
+<div class="flash flash-error">
+    Already scanned in at {{ already_scanned.created_at.strftime('%H:%M on %d %b %Y') }}
+    {% if already_scanned.admin %}by {{ already_scanned.admin.name }}{% endif %}
+</div>
+{% elif reservation.status != 'paid' %}
+<div class="flash flash-error">
+    Ticket not valid — status is {{ reservation.status }}
+</div>
+{% else %}
+<form method="POST" action="{{ url_for('admin_scan_admit', reference_code=reservation.reference_code) }}">
+    <button type="submit" class="btn btn-success">Admit — {{ reservation.num_tickets }} ticket{% if reservation.num_tickets > 1 %}s{% endif %}</button>
+</form>
+{% endif %}
+
+<p class="section-title" style="margin-top: 24px;">Audit Trail</p>
+<div class="field-group" style="overflow-x: auto;">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Action</th>
+                <th>By</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in reservation.logs %}
+            <tr>
+                <td style="font-size: 0.75rem; white-space: nowrap;">{{ log.created_at.strftime('%d %b %H:%M') }}</td>
+                <td><span class="badge badge-{% if log.action == 'scanned_in' %}paid{% elif log.action == 'cancelled' %}cancelled{% else %}pending{% endif %}">{{ log.action }}</span></td>
+                <td style="font-size: 0.8rem;">{{ log.admin.name if log.admin else '—' }}</td>
+                <td style="font-size: 0.8rem; color: var(--text3);">{{ log.notes or '' }}</td>
+            </tr>
+            {% endfor %}
+            {% if not reservation.logs %}
+            <tr><td colspan="4" style="color: var(--text3); font-size: 0.85rem;">No log entries</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<div style="margin-top: 16px;">
+    <a href="{{ url_for('admin_scan') }}" class="btn btn-surface">Scan Another</a>
+</div>
+{% endblock %}

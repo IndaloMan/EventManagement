@@ -1,17 +1,19 @@
 """Marina Club Events — multi-business ticket reservation system."""
 
+import env  # noqa: F401
 import os
 from functools import wraps
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import (Flask, render_template, request, redirect, url_for,
                    flash, send_from_directory, abort)
 from flask_login import (LoginManager, login_user, logout_user,
                          login_required, current_user)
 from werkzeug.utils import secure_filename
 from config import Config
-from models import db, Admin, Business, Event, Reservation, event_managers
+from models import db, Admin, Business, Event, Reservation, ReservationLog, event_managers
 from calendar_sync import fetch_upcoming_events
-from qr_generator import generate_event_qr
+from qr_generator import generate_event_qr, generate_reference_qr_base64
+from email_sender import send_confirmation_email
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -46,10 +48,21 @@ def owner_or_above(f):
     @wraps(f)
     @login_required
     def decorated(*args, **kwargs):
-        if current_user.is_event_manager:
+        if current_user.is_event_manager or current_user.is_event_security:
             abort(403)
         return f(*args, **kwargs)
     return decorated
+
+
+def log_reservation(reservation_id, action, admin_id=None, notes=None):
+    log = ReservationLog(
+        reservation_id=reservation_id,
+        action=action,
+        admin_id=admin_id,
+        notes=notes,
+    )
+    db.session.add(log)
+    db.session.flush()
 
 
 # ---------------------------------------------------------------------------
@@ -89,8 +102,8 @@ def reserve(event_id):
         phone = request.form.get('phone', '').strip()
         num_tickets = int(request.form.get('num_tickets', 1))
 
-        if not name or not phone:
-            flash('Name and phone number are required.', 'error')
+        if not name or not phone or not email:
+            flash('Name, email and phone number are required.', 'error')
             return render_template('reserve.html', event=event)
 
         if num_tickets < 1:
@@ -113,6 +126,15 @@ def reserve(event_id):
             status='pending'
         )
         db.session.add(reservation)
+        db.session.flush()
+        log_reservation(reservation.id, 'reserved',
+                        notes=f'{reservation.name}, {reservation.num_tickets} ticket(s)')
+
+        email_sent = send_confirmation_email(app.config, reservation, event)
+        if email_sent:
+            log_reservation(reservation.id, 'email_sent',
+                            notes=f'Confirmation sent to {reservation.email}')
+
         db.session.commit()
 
         return render_template('confirmation.html',
@@ -159,6 +181,8 @@ def admin_login():
         admin = Admin.query.filter_by(username=username).first()
         if admin and admin.check_password(password):
             login_user(admin)
+            if admin.is_event_security:
+                return redirect(url_for('admin_scan'))
             return redirect(url_for('admin_dashboard'))
         flash('Invalid username or password.', 'error')
 
@@ -208,9 +232,9 @@ def admin_businesses():
 def admin_business_new():
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
-        slug = request.form.get('slug', '').strip().lower().replace(' ', '-')
+        slug = request.form.get('slug', '').strip().upper()
         if not name or not slug:
-            flash('Name and slug are required.', 'error')
+            flash('Name and identifier are required.', 'error')
             return render_template('admin/business_form.html', business=None)
 
         if Business.query.filter_by(slug=slug).first():
@@ -283,7 +307,7 @@ def admin_users():
         users = Admin.query.order_by(Admin.name).all()
     else:
         users = Admin.query.filter(
-            Admin.role == 'event_manager'
+            Admin.role.in_(['event_manager', 'event_security'])
         ).order_by(Admin.name).all()
     return render_template('admin/users.html', users=users)
 
@@ -298,7 +322,8 @@ def admin_user_new():
         role = request.form.get('role', 'event_manager')
 
         if not current_user.is_global_admin:
-            role = 'event_manager'
+            if role not in ('event_manager', 'event_security'):
+                role = 'event_manager'
 
         if not username or not name or not password:
             flash('Username, name and password are required.', 'error')
@@ -340,7 +365,7 @@ def admin_user_edit(user_id):
     if not user:
         abort(404)
 
-    if not current_user.is_global_admin and user.role != 'event_manager':
+    if not current_user.is_global_admin and user.role not in ('event_manager', 'event_security'):
         abort(403)
 
     if request.method == 'POST':
@@ -379,6 +404,71 @@ def admin_user_edit(user_id):
 def admin_events():
     events = current_user.get_accessible_events()
     return render_template('admin/events.html', events=events)
+
+
+@app.route('/admin/events/new', methods=['GET', 'POST'])
+@owner_or_above
+def admin_event_new():
+    """Manually create an event (without Google Calendar)."""
+    businesses = current_user.get_accessible_businesses()
+
+    if request.method == 'POST':
+        business_id = int(request.form.get('business_id', 0))
+        title = request.form.get('title', '').strip()
+        start_date = request.form.get('start_date', '')
+        start_time_val = request.form.get('start_time_val', '')
+
+        if not title or not start_date or not start_time_val or not business_id:
+            flash('Business, title, start date and start time are required.', 'error')
+            return render_template('admin/event_form.html', businesses=businesses)
+
+        biz = db.session.get(Business, business_id)
+        if not biz or not current_user.can_access_business(biz):
+            abort(403)
+
+        start_time = datetime.strptime(f'{start_date}T{start_time_val}', '%Y-%m-%dT%H:%M')
+
+        no_fixed_end = 'no_fixed_end' in request.form
+        end_time_text = None
+        if no_fixed_end:
+            end_time = datetime.strptime(f'{start_date}T23:59', '%Y-%m-%dT%H:%M').replace(hour=0, minute=0) + timedelta(days=1)
+            end_time_text = request.form.get('end_time_text', 'Til late').strip() or 'Til late'
+        else:
+            end_date = request.form.get('end_date', '')
+            end_time_val = request.form.get('end_time_val', '')
+            if end_date and end_time_val:
+                end_time = datetime.strptime(f'{end_date}T{end_time_val}', '%Y-%m-%dT%H:%M')
+            else:
+                end_time = None
+
+        event = Event(
+            business_id=business_id,
+            title=title,
+            start_time=start_time,
+            end_time=end_time,
+            end_time_text=end_time_text,
+            location=request.form.get('location', '').strip(),
+            description=request.form.get('description', '').strip(),
+            price=float(request.form.get('price', 0) or 0),
+            max_capacity=int(request.form.get('max_capacity', 0) or 0),
+            includes=request.form.get('includes', '').strip(),
+            dress_code=request.form.get('dress_code', '').strip(),
+            is_active=True,
+        )
+
+        poster = request.files.get('poster')
+        if poster and poster.filename and allowed_file(poster.filename):
+            db.session.flush()
+            filename = secure_filename(f"event_{event.id}_{poster.filename}")
+            poster.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            event.poster_filename = filename
+
+        db.session.add(event)
+        db.session.commit()
+        flash(f'Event "{title}" created.', 'success')
+        return redirect(url_for('admin_event_detail', event_id=event.id))
+
+    return render_template('admin/event_form.html', businesses=businesses)
 
 
 @app.route('/admin/events/sync')
@@ -444,6 +534,7 @@ def admin_event_detail(event_id):
         event.max_capacity = int(request.form.get('max_capacity', 0))
         event.includes = request.form.get('includes', '').strip()
         event.dress_code = request.form.get('dress_code', '').strip()
+        event.end_time_text = request.form.get('end_time_text', '').strip() or None
         event.is_active = 'is_active' in request.form
 
         poster = request.files.get('poster')
@@ -456,7 +547,7 @@ def admin_event_detail(event_id):
             event.managers.clear()
             for mid in request.form.getlist('manager_ids'):
                 mgr = db.session.get(Admin, int(mid))
-                if mgr and mgr.is_event_manager:
+                if mgr and mgr.role in ('event_manager', 'event_security'):
                     event.managers.append(mgr)
 
         db.session.commit()
@@ -465,7 +556,9 @@ def admin_event_detail(event_id):
 
     reservations = Reservation.query.filter_by(event_id=event.id).order_by(
         Reservation.created_at.desc()).all()
-    all_managers = Admin.query.filter_by(role='event_manager', is_active_admin=True).all()
+    all_managers = Admin.query.filter(
+        Admin.role.in_(['event_manager', 'event_security']),
+        Admin.is_active_admin == True).all()
     return render_template('admin/event_detail.html',
                            event=event, reservations=reservations,
                            all_managers=all_managers)
@@ -529,10 +622,91 @@ def admin_update_reservation(res_id):
         if new_status == 'paid':
             reservation.paid_at = datetime.utcnow()
             reservation.paid_to_admin_id = current_user.id
+        log_reservation(reservation.id, new_status, admin_id=current_user.id)
         db.session.commit()
+
+        if new_status == 'paid':
+            return redirect(url_for('admin_print_ticket', res_id=reservation.id))
+
         flash(f'Reservation {reservation.reference_code} marked as {new_status}.', 'success')
 
     return redirect(request.referrer or url_for('admin_reservations'))
+
+
+@app.route('/admin/reservations/<int:res_id>/ticket')
+@login_required
+def admin_print_ticket(res_id):
+    reservation = db.session.get(Reservation, res_id)
+    if not reservation:
+        abort(404)
+    if not current_user.can_access_event(reservation.event):
+        abort(403)
+
+    qr_base64 = generate_reference_qr_base64(
+        f"{app.config['APP_URL']}/admin/scan/{reservation.reference_code}")
+    log_reservation(reservation.id, 'ticket_printed', admin_id=current_user.id)
+    db.session.commit()
+    return render_template('admin/ticket.html',
+                           reservation=reservation,
+                           event=reservation.event,
+                           qr_base64=qr_base64)
+
+
+# ---------------------------------------------------------------------------
+# Admin — scanning (event security + all roles)
+# ---------------------------------------------------------------------------
+
+@app.route('/admin/scan')
+@login_required
+def admin_scan():
+    return render_template('admin/scan.html')
+
+
+@app.route('/admin/scan/<reference_code>')
+@login_required
+def admin_scan_lookup(reference_code):
+    reservation = Reservation.query.filter_by(
+        reference_code=reference_code.upper()).first()
+    if not reservation:
+        flash('Ticket not found.', 'error')
+        return render_template('admin/scan.html')
+
+    if not current_user.can_access_event(reservation.event):
+        abort(403)
+
+    already_scanned = ReservationLog.query.filter_by(
+        reservation_id=reservation.id, action='scanned_in').first()
+
+    return render_template('admin/scan_result.html',
+                           reservation=reservation,
+                           event=reservation.event,
+                           already_scanned=already_scanned)
+
+
+@app.route('/admin/scan/<reference_code>/admit', methods=['POST'])
+@login_required
+def admin_scan_admit(reference_code):
+    reservation = Reservation.query.filter_by(
+        reference_code=reference_code.upper()).first()
+    if not reservation:
+        abort(404)
+    if not current_user.can_access_event(reservation.event):
+        abort(403)
+
+    already_scanned = ReservationLog.query.filter_by(
+        reservation_id=reservation.id, action='scanned_in').first()
+    if already_scanned:
+        flash(f'Already scanned in at {already_scanned.created_at.strftime("%H:%M")}', 'error')
+        return redirect(url_for('admin_scan_lookup', reference_code=reference_code))
+
+    if reservation.status != 'paid':
+        flash(f'Ticket status is {reservation.status} — not paid.', 'error')
+        return redirect(url_for('admin_scan_lookup', reference_code=reference_code))
+
+    log_reservation(reservation.id, 'scanned_in', admin_id=current_user.id)
+    db.session.commit()
+    flash(f'{reservation.name} — {reservation.num_tickets} ticket(s) admitted.', 'success')
+    return redirect(url_for('admin_scan_lookup', reference_code=reference_code))
 
 
 # ---------------------------------------------------------------------------

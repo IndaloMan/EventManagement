@@ -4,8 +4,9 @@
 <p class="section-title">All Events</p>
 
 {% if not current_user.is_event_manager %}
-<div style="margin-bottom: 16px;">
-    <a href="{{ url_for('admin_sync_events') }}" class="btn btn-primary btn-sm">Sync from Google Calendar</a>
+<div class="btn-row" style="margin-bottom: 16px;">
+    <a href="{{ url_for('admin_event_new') }}" class="btn btn-success btn-sm" style="flex: 1;">New Event</a>
+    <a href="{{ url_for('admin_sync_events') }}" class="btn btn-primary btn-sm" style="flex: 1;">Sync Calendar</a>
 </div>
 {% endif %}
 

@@ -19,9 +19,10 @@
 </div>
 
 <div style="text-align: center; font-size: 0.85rem; color: var(--text2); margin: 16px 0;">
-    <p>Please show this reference code when you arrive.</p>
+    <p>Confirmation sent to {{ reservation.email }}</p>
+    <p style="margin-top: 6px;">Please show this reference code when you arrive.</p>
     {% if event.price > 0 %}
-    <p style="margin-top: 6px;">Payment is made at the Marina Club bar.</p>
+    <p style="margin-top: 6px;">Payment is made at the {{ event.business.name }} bar.</p>
     {% endif %}
 </div>
 

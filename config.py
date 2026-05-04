@@ -12,3 +12,7 @@ class Config:
     GOOGLE_CALENDAR_ID = os.environ.get('GOOGLE_CALENDAR_ID', '')
     GOOGLE_CREDENTIALS_FILE = os.path.join(BASE_DIR, 'credentials.json')
     APP_URL = os.environ.get('APP_URL', 'http://localhost:5000')
+    SMTP_SERVER = 'smtp.gmail.com'
+    SMTP_PORT = 465
+    SMTP_EMAIL = os.environ.get('SMTP_EMAIL', '')
+    SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')

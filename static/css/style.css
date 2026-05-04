@@ -267,8 +267,13 @@ body {
 }
 
 .field-row select {
-    appearance: none;
-    -webkit-appearance: none;
+    appearance: auto;
+    -webkit-appearance: menulist;
+}
+
+.field-row select option {
+    background: var(--surface);
+    color: var(--text);
 }
 
 .field-row textarea {

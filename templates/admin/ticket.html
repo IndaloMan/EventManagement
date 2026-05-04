@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket — {{ reservation.reference_code }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; }
+        .ticket {
+            width: 350px;
+            margin: 20px auto;
+            background: #fff;
+            border: 2px solid #000;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .ticket-header {
+            background: #000;
+            color: #fff;
+            padding: 14px 20px;
+            text-align: center;
+        }
+        .ticket-header h1 { font-size: 1rem; font-weight: 700; letter-spacing: 0.5px; }
+        .ticket-body { padding: 20px; text-align: center; }
+        .ticket-event { font-size: 1.15rem; font-weight: 700; margin-bottom: 4px; }
+        .ticket-date { font-size: 0.85rem; color: #555; margin-bottom: 16px; }
+        .ticket-qr { margin: 16px 0; }
+        .ticket-qr img { width: 160px; height: 160px; }
+        .ticket-ref { font-size: 1.6rem; font-weight: 700; letter-spacing: 3px; margin: 12px 0; }
+        .ticket-details { font-size: 0.8rem; color: #555; margin-bottom: 4px; }
+        .ticket-paid {
+            display: inline-block;
+            background: #30d158;
+            color: #fff;
+            padding: 6px 24px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 12px;
+        }
+        .ticket-footer {
+            border-top: 1px dashed #ccc;
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 0.7rem;
+            color: #999;
+        }
+        .no-print { text-align: center; margin: 16px; }
+        .no-print a {
+            display: inline-block;
+            padding: 10px 24px;
+            background: #0a84ff;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        @media print {
+            body { background: #fff; }
+            .ticket { border: 2px solid #000; margin: 0 auto; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="ticket">
+        <div class="ticket-header">
+            <h1>{{ event.business.name }}</h1>
+        </div>
+        <div class="ticket-body">
+            <div class="ticket-event">{{ event.title }}</div>
+            <div class="ticket-date">
+                {{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}{% if event.end_time_text %} — {{ event.end_time_text }}{% elif event.end_time %} — {{ event.end_time.strftime('%H:%M') }}{% endif %}
+            </div>
+            <div class="ticket-qr">
+                <img src="data:image/png;base64,{{ qr_base64 }}" alt="QR {{ reservation.reference_code }}">
+            </div>
+            <div class="ticket-ref">{{ reservation.reference_code }}</div>
+            <div class="ticket-details">{{ reservation.name }} &middot; {{ reservation.num_tickets }} ticket{% if reservation.num_tickets > 1 %}s{% endif %}</div>
+            {% if event.price > 0 %}
+            <div class="ticket-details" style="font-weight: 600; color: #000;">&euro;{{ "%.2f"|format(event.price * reservation.num_tickets) }} paid</div>
+            {% endif %}
+            <div class="ticket-paid">PAID</div>
+        </div>
+        <div class="ticket-footer">VIP Promotions &middot; {{ reservation.reference_code }}</div>
+    </div>
+
+    <div class="no-print">
+        <a href="javascript:window.print()">Print Ticket</a>
+    </div>
+
+    <script>window.onload = function() { window.print(); };</script>
+</body>
+</html>

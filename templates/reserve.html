@@ -11,7 +11,7 @@
         <h2 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 8px;">{{ event.title }}</h2>
         <div class="event-detail">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            {{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}
+            {{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}{% if event.end_time_text %} — {{ event.end_time_text }}{% elif event.end_time %} — {{ event.end_time.strftime('%H:%M') }}{% endif %}
         </div>
         {% if event.location %}
         <div class="event-detail">
@@ -37,7 +37,7 @@
         </div>
         <div class="field-row">
             <label for="email">Email</label>
-            <input type="email" id="email" name="email" placeholder="Optional">
+            <input type="email" id="email" name="email" placeholder="For confirmation" required>
         </div>
         <div class="field-row">
             <label for="phone">Phone</label>
@@ -61,7 +61,7 @@
 
     {% if event.price > 0 %}
     <p style="font-size: 0.8rem; color: var(--text3); text-align: center; margin-bottom: 12px;">
-        Payment is made at the Marina Club bar. This form reserves your place.
+        Payment is made at the {{ event.business.name }} bar. This form reserves your place.
     </p>
     {% endif %}
 

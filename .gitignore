@@ -8,4 +8,5 @@ credentials.json
 static/uploads/
 *.token
 .env
+env.py
 .DS_Store

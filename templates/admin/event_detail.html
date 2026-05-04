@@ -5,7 +5,7 @@
 
 <form method="POST" action="{{ url_for('admin_event_detail', event_id=event.id) }}" enctype="multipart/form-data">
     <div class="field-group">
-        <p class="field-group-label">From Google Calendar</p>
+        <p class="field-group-label">Event Info</p>
         <div class="field-row">
             <label>Business</label>
             <span style="font-size: 0.95rem;">{{ event.business.name }}</span>
@@ -15,8 +15,14 @@
             <span style="font-size: 0.95rem;">{{ event.title }}</span>
         </div>
         <div class="field-row">
-            <label>Date</label>
+            <label>Start</label>
             <span style="font-size: 0.95rem;">{{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}</span>
+        </div>
+        <div class="field-row">
+            <label>End</label>
+            <span style="font-size: 0.95rem;">
+                {% if event.end_time_text %}{{ event.end_time_text }}{% elif event.end_time %}{{ event.end_time.strftime('%A %d %B %Y, %H:%M') }}{% else %}—{% endif %}
+            </span>
         </div>
         <div class="field-row">
             <label>Location</label>
@@ -41,6 +47,10 @@
         <div class="field-row">
             <label for="dress_code">Dress code</label>
             <input type="text" id="dress_code" name="dress_code" value="{{ event.dress_code or '' }}" placeholder="e.g. Dress to Impress">
+        </div>
+        <div class="field-row">
+            <label for="end_time_text">End display</label>
+            <input type="text" id="end_time_text" name="end_time_text" value="{{ event.end_time_text or '' }}" placeholder="e.g. Til late (blank = show actual time)">
         </div>
         <div class="field-row">
             <label>Active</label>
@@ -96,6 +106,7 @@
                 <th>Tickets</th>
                 <th>Status</th>
                 <th>Action</th>
+                <th>Log</th>
             </tr>
         </thead>
         <tbody>
@@ -115,12 +126,18 @@
                         <button type="submit" class="btn btn-sm" style="background: var(--accent2); padding: 5px 10px;">Paid</button>
                     </form>
                     {% endif %}
+                    {% if r.status == 'paid' %}
+                    <a href="{{ url_for('admin_print_ticket', res_id=r.id) }}" target="_blank" class="btn btn-sm" style="background: var(--accent); padding: 5px 10px;">Ticket</a>
+                    {% endif %}
                     {% if r.status != 'cancelled' %}
                     <form method="POST" action="{{ url_for('admin_update_reservation', res_id=r.id) }}" style="display: inline;">
                         <input type="hidden" name="status" value="cancelled">
                         <button type="submit" class="btn btn-sm" style="background: var(--danger); padding: 5px 10px;">Cancel</button>
                     </form>
                     {% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('admin_scan_lookup', reference_code=r.reference_code) }}" class="btn btn-sm" style="background: var(--surface2); padding: 5px 10px; font-size: 0.7rem;">Trail</a>
                 </td>
             </tr>
             {% endfor %}

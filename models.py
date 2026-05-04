@@ -67,6 +67,10 @@ class Admin(UserMixin, db.Model):
     def is_event_manager(self):
         return self.role == 'event_manager'
 
+    @property
+    def is_event_security(self):
+        return self.role == 'event_security'
+
     def can_access_business(self, business):
         if self.is_global_admin:
             return True
@@ -106,6 +110,7 @@ class Event(db.Model):
     title = db.Column(db.String(200), nullable=False)
     start_time = db.Column(db.DateTime, nullable=False)
     end_time = db.Column(db.DateTime)
+    end_time_text = db.Column(db.String(100))
     location = db.Column(db.String(200))
     description = db.Column(db.Text)
     price = db.Column(db.Float, default=0.0)
@@ -155,6 +160,21 @@ class Reservation(db.Model):
     paid_at = db.Column(db.DateTime)
     paid_to_admin_id = db.Column(db.Integer, db.ForeignKey('admins.id'))
 
+    logs = db.relationship('ReservationLog', backref='reservation', lazy=True,
+                           order_by='ReservationLog.created_at')
+
     @staticmethod
     def generate_reference():
         return uuid.uuid4().hex[:8].upper()
+
+
+class ReservationLog(db.Model):
+    __tablename__ = 'reservation_logs'
+    id = db.Column(db.Integer, primary_key=True)
+    reservation_id = db.Column(db.Integer, db.ForeignKey('reservations.id'), nullable=False)
+    action = db.Column(db.String(30), nullable=False)
+    admin_id = db.Column(db.Integer, db.ForeignKey('admins.id'))
+    notes = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    admin = db.relationship('Admin', lazy=True)

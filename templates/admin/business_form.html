@@ -12,8 +12,8 @@
         </div>
         {% if not business %}
         <div class="field-row">
-            <label for="slug">URL Slug</label>
-            <input type="text" id="slug" name="slug" placeholder="e.g. marina-club" required>
+            <label for="slug">Identifier</label>
+            <input type="text" id="slug" name="slug" placeholder="3 letter + 1 digit code e.g. MCG1" required maxlength="4" style="text-transform: uppercase;">
         </div>
         {% endif %}
         <div class="field-row">

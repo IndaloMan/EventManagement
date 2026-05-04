@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Reservations — Marina Club Events{% endblock %}
+{% block title %}Reservations — VIP Promotions{% endblock %}
 {% block content %}
 <p class="section-title">All Reservations</p>
 
@@ -55,6 +55,9 @@
                         <input type="hidden" name="status" value="paid">
                         <button type="submit" class="btn btn-sm" style="background: var(--accent2); padding: 5px 10px;">Paid</button>
                     </form>
+                    {% endif %}
+                    {% if r.status == 'paid' %}
+                    <a href="{{ url_for('admin_print_ticket', res_id=r.id) }}" target="_blank" class="btn btn-sm" style="background: var(--accent); padding: 5px 10px;">Ticket</a>
                     {% endif %}
                     {% if r.status != 'cancelled' %}
                     <form method="POST" action="{{ url_for('admin_update_reservation', res_id=r.id) }}" style="display: inline;">

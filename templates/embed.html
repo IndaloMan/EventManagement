@@ -11,7 +11,7 @@
         <main id="content">
             {% if event %}
             <h2 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 12px;">{{ event.title }}</h2>
-            <p style="font-size: 0.85rem; color: var(--text2);">{{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}</p>
+            <p style="font-size: 0.85rem; color: var(--text2);">{{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}{% if event.end_time_text %} — {{ event.end_time_text }}{% elif event.end_time %} — {{ event.end_time.strftime('%H:%M') }}{% endif %}</p>
             {% if event.price > 0 %}
             <div class="event-price">&euro;{{ "%.2f"|format(event.price) }} per person</div>
             {% endif %}
@@ -23,7 +23,7 @@
                     </div>
                     <div class="field-row">
                         <label for="email">Email</label>
-                        <input type="email" id="email" name="email" placeholder="Optional">
+                        <input type="email" id="email" name="email" placeholder="For confirmation" required>
                     </div>
                     <div class="field-row">
                         <label for="phone">Phone</label>
