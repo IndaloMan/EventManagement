@@ -28,7 +28,7 @@
 <div class="card">
     <div class="card-header">
         <span class="card-title">{{ biz.name }}</span>
-        <span class="card-meta">{{ biz.events | selectattr('is_active') | list | length }} events</span>
+        <span class="card-meta">{% set n = biz.events | selectattr('is_active') | list | length %}{{ n }} event{{ '' if n == 1 else 's' }}</span>
     </div>
 </div>
 {% endfor %}
@@ -39,7 +39,7 @@
 <div class="card" onclick="this.classList.toggle('expanded')">
     <div class="card-header">
         <span class="card-title">{{ event.title }}</span>
-        <span class="card-meta">{{ event.start_time.strftime('%d %b') }}</span>
+        <span class="card-meta">{{ event.start_time.strftime('%a %d %b %Y') }}</span>
         <span class="card-chevron">&rsaquo;</span>
     </div>
     <div class="card-body">

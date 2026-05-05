@@ -3,7 +3,7 @@
 {% block content %}
 <p class="section-title">Event Configuration</p>
 
-<form method="POST" action="{{ url_for('admin_event_detail', event_id=event.id) }}" enctype="multipart/form-data">
+<form method="POST" action="{{ url_for('admin_event_detail', event_id=event.id) }}" enctype="multipart/form-data" data-track-changes>
     <div class="field-group">
         <p class="field-group-label">Event Info</p>
         <div class="field-row">

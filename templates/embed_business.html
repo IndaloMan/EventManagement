@@ -14,7 +14,7 @@
             <div class="card" onclick="this.classList.toggle('expanded')">
                 <div class="card-header">
                     <span class="card-title">{{ event.title }}</span>
-                    <span class="card-meta">{{ event.start_time.strftime('%d %b') }}</span>
+                    <span class="card-meta">{{ event.start_time.strftime('%a %d %b %Y') }}</span>
                     <span class="card-chevron">&rsaquo;</span>
                 </div>
                 <div class="card-body">

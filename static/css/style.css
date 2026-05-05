@@ -115,8 +115,8 @@ body {
 }
 
 .card-meta {
-    font-size: 0.72rem;
-    color: var(--text3);
+    font-size: 0.85rem;
+    color: var(--text2);
     margin-left: 12px;
     white-space: nowrap;
 }

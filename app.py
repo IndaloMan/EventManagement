@@ -363,7 +363,7 @@ def admin_users():
 @owner_or_above
 def admin_user_new():
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip().lower()
         name = request.form.get('name', '').strip()
         password = request.form.get('password', '')
         role = request.form.get('role', 'event_manager')
@@ -372,26 +372,22 @@ def admin_user_new():
             if role not in ('event_manager', 'event_security', 'cashier'):
                 role = 'event_manager'
 
-        if not username or not name or not password:
-            flash('Username, name and password are required.', 'error')
-            return render_template('admin/user_form.html', user=None)
-
-        valid_username = re.match(
-            r'^[a-zA-Z0-9]+$|^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$',
-            username
-        )
-        if not valid_username:
-            flash('Username must be alphanumeric or a valid email address.', 'error')
+        if not email or not name or not password:
+            flash('Email, name and password are required.', 'error')
             return render_template('admin/user_form.html', user=None, businesses=Business.query.filter_by(is_active=True).all())
 
-        if Admin.query.filter_by(username=username).first():
-            flash('Username already taken.', 'error')
-            return render_template('admin/user_form.html', user=None)
+        if not re.match(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$', email):
+            flash('Please enter a valid email address.', 'error')
+            return render_template('admin/user_form.html', user=None, businesses=Business.query.filter_by(is_active=True).all())
+
+        if Admin.query.filter(Admin.username.ilike(email)).first():
+            flash('A user with that email already exists.', 'error')
+            return render_template('admin/user_form.html', user=None, businesses=Business.query.filter_by(is_active=True).all())
 
         admin = Admin(
-            username=username,
+            username=email,
             name=name,
-            email=request.form.get('email', '').strip(),
+            email=email,
             phone=request.form.get('phone', '').strip(),
             role=role,
         )
@@ -630,7 +626,7 @@ def admin_generate_qr(event_id):
         abort(403)
 
     filename = generate_event_qr(event.id, app.config['APP_URL'],
-                                  app.config['UPLOAD_FOLDER'])
+                                  app.config['UPLOAD_FOLDER'], event.title)
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename,
                                as_attachment=True)
 

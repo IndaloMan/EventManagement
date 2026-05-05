@@ -21,7 +21,7 @@
             {% if not event.is_active %}<span style="color: var(--text3);">[Inactive]</span> {% endif %}
             {{ event.title }}
         </span>
-        <span class="card-meta">{{ event.start_time.strftime('%d %b %Y') }}</span>
+        <span class="card-meta">{{ event.start_time.strftime('%a %d %b %Y') }}</span>
         <span class="card-chevron">&rsaquo;</span>
     </div>
     <div class="card-body">

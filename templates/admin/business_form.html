@@ -3,7 +3,7 @@
 {% block content %}
 <p class="section-title">{% if business %}Edit Business{% else %}New Business{% endif %}</p>
 
-<form method="POST" enctype="multipart/form-data">
+<form method="POST" enctype="multipart/form-data" {% if business %}data-track-changes{% endif %}>
     <div class="field-group">
         <p class="field-group-label">Details</p>
         <div class="field-row">

@@ -2,17 +2,19 @@
 
 import os
 import io
+import re
 import base64
 import qrcode
 
 
-def generate_event_qr(event_id, app_url, output_dir):
+def generate_event_qr(event_id, app_url, output_dir, title=''):
     """Generate a QR code PNG for an event's reservation page.
 
     Returns the filename of the generated QR code.
     """
     url = f"{app_url}/reserve/{event_id}"
-    filename = f"qr_event_{event_id}.png"
+    safe_title = re.sub(r'[^\w\s-]', '', title).strip().replace(' ', '_')[:50]
+    filename = f"qr_{safe_title}_{event_id}.png" if safe_title else f"qr_event_{event_id}.png"
     filepath = os.path.join(output_dir, filename)
 
     qr = qrcode.QRCode(version=1, box_size=10, border=4)
