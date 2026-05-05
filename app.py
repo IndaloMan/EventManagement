@@ -799,6 +799,12 @@ def init_db():
     """Create tables and default global admin if none exists."""
     with app.app_context():
         db.create_all()
+        with db.engine.connect() as conn:
+            cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(admins)"))]
+            if 'reset_token' not in cols:
+                conn.execute(db.text("ALTER TABLE admins ADD COLUMN reset_token VARCHAR(64)"))
+                conn.execute(db.text("ALTER TABLE admins ADD COLUMN reset_token_expires DATETIME"))
+                conn.commit()
         if not Admin.query.first():
             admin = Admin(username='admin', name='Global Admin', role='global_admin')
             admin.set_password('changeme')

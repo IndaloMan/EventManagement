@@ -432,3 +432,69 @@ body {
 .poster-zone:hover { border-color: var(--accent); }
 .poster-zone.has-image { border-style: solid; border-color: var(--accent); }
 .poster-zone img { max-width: 100%; border-radius: 14px; }
+
+/* Hamburger — hidden on desktop */
+.nav-hamburger { display: none; }
+.nav-links { display: none; }
+
+@media (max-width: 768px) {
+    #tabs { display: none; }
+
+    #content {
+        height: auto;
+        padding-bottom: 16px;
+    }
+
+    .nav-hamburger {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+    }
+
+    .nav-hamburger span {
+        display: block;
+        width: 24px;
+        height: 2px;
+        background: white;
+        border-radius: 2px;
+    }
+
+    .nav-links {
+        display: none;
+        flex-direction: column;
+        position: absolute;
+        top: 56px;
+        left: 0;
+        right: 0;
+        background: var(--surface);
+        padding: 0.25rem 0 0.75rem;
+        z-index: 1000;
+        gap: 0;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+        list-style: none;
+    }
+
+    .nav-links.open { display: flex; }
+
+    .nav-links li {
+        border-top: 1px solid var(--border);
+    }
+
+    .nav-links a {
+        display: block;
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        color: var(--text2);
+        text-decoration: none;
+    }
+
+    .nav-links a:hover {
+        color: var(--accent);
+    }
+
+    #app { position: relative; }
+}

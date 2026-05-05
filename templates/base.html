@@ -15,9 +15,38 @@
         <header id="header">
             <h1>VIP Promotions</h1>
             {% if current_user.is_authenticated %}
-            <span style="font-size: 0.7rem; color: var(--text3);">{{ current_user.name }}</span>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 0.7rem; color: var(--text3);">{{ current_user.name }}</span>
+                <button class="nav-hamburger" id="navToggle" aria-label="Menu">
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
             {% endif %}
         </header>
+        <ul class="nav-links" id="navLinks">
+            {% if current_user.is_authenticated %}
+            {% if current_user.role_exact == 'cashier' %}
+            <li><a href="{{ url_for('admin_reservations') }}">Bookings</a></li>
+            <li><a href="{{ url_for('admin_logout') }}">Sign Out</a></li>
+            {% elif current_user.role_exact == 'event_security' %}
+            <li><a href="{{ url_for('admin_scan') }}">Scan</a></li>
+            <li><a href="{{ url_for('admin_logout') }}">Sign Out</a></li>
+            {% else %}
+            <li><a href="{{ url_for('admin_dashboard') }}">Dashboard</a></li>
+            <li><a href="{{ url_for('admin_events') }}">Events</a></li>
+            <li><a href="{{ url_for('admin_reservations') }}">Bookings</a></li>
+            <li><a href="{{ url_for('admin_scan') }}">Scan</a></li>
+            <li><a href="{{ url_for('admin_reports') }}">Reports</a></li>
+            {% if current_user.role_exact in ('global_admin', 'owner') %}
+            <li><a href="{{ url_for('admin_users') }}">Users</a></li>
+            {% endif %}
+            {% if current_user.is_global_admin %}
+            <li><a href="{{ url_for('admin_businesses') }}">Venues</a></li>
+            {% endif %}
+            <li><a href="{{ url_for('admin_logout') }}">Sign Out</a></li>
+            {% endif %}
+            {% endif %}
+        </ul>
         <main id="content">
             {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -121,5 +150,11 @@
         </nav>
     </div>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+    var t = document.getElementById('navToggle');
+    if (t) t.addEventListener('click', function() {
+        document.getElementById('navLinks').classList.toggle('open');
+    });
+    </script>
 </body>
 </html>
