@@ -48,11 +48,6 @@
             <label for="location">Location</label>
             <input type="text" id="location" name="location" value="{{ event.location or '' }}" placeholder="Optional">
         </div>
-        {% if event.gcal_event_id %}
-        <div style="padding: 8px 14px;">
-            <p style="font-size: 0.75rem; color: var(--warning);">&#9888; GCal event — title, dates and location will be overwritten on next calendar sync.</p>
-        </div>
-        {% endif %}
     </div>
 
     <div class="field-group">

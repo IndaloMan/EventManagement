@@ -13,7 +13,6 @@ from flask_login import (LoginManager, login_user, logout_user,
 from werkzeug.utils import secure_filename
 from config import Config
 from models import db, Admin, Business, Event, Reservation, ReservationLog, Maintenance, AppSettings, event_managers
-from calendar_sync import fetch_upcoming_events
 from qr_generator import generate_event_qr, generate_reference_qr_base64
 from email_sender import send_confirmation_email, send_cancellation_email, send_password_reset_email
 from translations import TRANSLATIONS, SUPPORTED_LANGUAGES, format_date_long, format_date_short
@@ -487,7 +486,6 @@ def admin_business_new():
             phone=request.form.get('phone', '').strip(),
             email=request.form.get('email', '').strip(),
             website=request.form.get('website', '').strip(),
-            google_calendar_id=request.form.get('google_calendar_id', '').strip(),
             description=request.form.get('description', '').strip(),
         )
 
@@ -518,7 +516,6 @@ def admin_business_edit(biz_id):
         business.phone = request.form.get('phone', '').strip()
         business.email = request.form.get('email', '').strip()
         business.website = request.form.get('website', '').strip()
-        business.google_calendar_id = request.form.get('google_calendar_id', '').strip()
         business.description = request.form.get('description', '').strip()
         business.is_active = 'is_active' in request.form
 
@@ -735,51 +732,6 @@ def admin_event_new():
 
     return render_template('admin/event_form.html', businesses=businesses)
 
-
-@app.route('/admin/events/sync')
-@owner_or_above
-def admin_sync_events():
-    """Sync events from Google Calendar for accessible businesses."""
-    businesses = current_user.get_accessible_businesses()
-    total_synced = 0
-
-    for business in businesses:
-        if not business.google_calendar_id:
-            continue
-        try:
-            gcal_events = fetch_upcoming_events(
-                app.config['GOOGLE_CREDENTIALS_FILE'],
-                business.google_calendar_id)
-
-            for ge in gcal_events:
-                existing = Event.query.filter_by(gcal_event_id=ge['gcal_event_id']).first()
-                if existing:
-                    existing.title = ge['title']
-                    existing.start_time = ge['start_time']
-                    existing.end_time = ge['end_time']
-                    existing.location = ge['location']
-                    existing.description = ge['description']
-                else:
-                    event = Event(
-                        business_id=business.id,
-                        gcal_event_id=ge['gcal_event_id'],
-                        event_code=generate_event_code(),
-                        title=ge['title'],
-                        start_time=ge['start_time'],
-                        end_time=ge['end_time'],
-                        location=ge['location'],
-                        description=ge['description'],
-                        is_active=True
-                    )
-                    db.session.add(event)
-                    total_synced += 1
-
-            db.session.commit()
-        except Exception as e:
-            flash(f'Sync failed for {business.name}: {e}', 'error')
-
-    flash(f'Calendar sync complete — {total_synced} new event(s) added.', 'success')
-    return redirect(url_for('admin_events'))
 
 
 @app.route('/admin/events/<int:event_id>', methods=['GET', 'POST'])
