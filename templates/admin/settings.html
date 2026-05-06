@@ -3,7 +3,10 @@
 {% block content %}
 <p class="section-title">Promotions Company</p>
 
-<form method="POST" action="{{ url_for('admin_settings') }}" data-track-changes>
+<style>
+.settings-form .field-row label { width: 130px; }
+</style>
+<form method="POST" action="{{ url_for('admin_settings') }}" enctype="multipart/form-data" data-track-changes class="settings-form">
     <div class="field-group">
         <div class="field-row">
             <label>Display name <span style="color: var(--danger);">*</span></label>
@@ -20,11 +23,25 @@
             <textarea name="promo_description" rows="3"
                       placeholder="Optional">{{ settings.promo_description or '' }}</textarea>
         </div>
+        <div style="padding: 12px 14px;">
+            <p style="font-size: 0.75rem; color: var(--text3); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">App Icon</p>
+            {% if icon_exists %}
+            <img src="{{ url_for('static', filename='icons/icon-192.png') }}?v={{ now }}" alt="App icon" style="width: 64px; height: 64px; border-radius: 10px; margin-bottom: 8px; display: block;">
+            {% endif %}
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <label class="btn btn-surface btn-sm" style="cursor: pointer; margin: 0;">
+                    {% if icon_exists %}Change Icon{% else %}Choose Icon{% endif %}
+                    <input type="file" name="app_icon" accept="image/*" style="display: none;" onchange="showChosen(this, 'icon-chosen')">
+                </label>
+                <span id="icon-chosen" style="font-size: 0.8rem; color: var(--text2);"></span>
+            </div>
+            <p style="font-size: 0.75rem; color: var(--text3); margin-top: 6px;">Square image recommended. Used as the app icon when installed on a phone.</p>
+        </div>
     </div>
 
     <p class="section-title" style="margin-top: 24px;">Email Settings</p>
 
-    <div class="field-group">
+    <div class="field-group settings-form">
         <div class="field-row">
             <label>Email address</label>
             <input type="email" name="smtp_email" value="{{ settings.smtp_email or '' }}"
@@ -50,6 +67,10 @@
 </form>
 
 <script>
+function showChosen(input, spanId) {
+    var span = document.getElementById(spanId);
+    if (span) span.textContent = input.files.length ? input.files[0].name : '';
+}
 (function() {
     var form = document.querySelector('[data-track-changes]');
     var btn = document.getElementById('saveBtn');

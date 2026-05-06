@@ -3,6 +3,7 @@
 import env  # noqa: F401
 import os
 import re
+from PIL import Image
 import uuid
 from functools import wraps
 from datetime import datetime, timedelta
@@ -27,7 +28,7 @@ login_manager.login_view = 'admin_login'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'}
 
 PUBLIC_ROUTES = ('index', 'business_events', 'business_flyer', 'reserve', 'reservation_manage',
-                 'embed_event', 'embed_business', 'static', 'manifest_json')
+                 'embed_event', 'embed_business', 'static', 'manifest_json', 'login_redirect')
 
 
 def get_lang():
@@ -247,7 +248,8 @@ def reserve(event_id):
             email=email,
             phone=phone,
             num_tickets=num_tickets,
-            status='pending'
+            status='pending',
+            lang=get_lang()
         )
         db.session.add(reservation)
         db.session.flush()
@@ -362,6 +364,11 @@ def business_flyer(slug):
 # ---------------------------------------------------------------------------
 # Admin — authentication
 # ---------------------------------------------------------------------------
+
+@app.route('/login')
+def login_redirect():
+    return redirect(url_for('admin_login'))
+
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -561,17 +568,27 @@ def admin_user_new():
             if role not in ('event_manager', 'event_security', 'cashier'):
                 role = 'event_manager'
 
+        form_data = {
+            'name': name,
+            'phone': request.form.get('phone', '').strip(),
+            'role': role,
+            'business_ids': request.form.getlist('business_ids'),
+            'event_ids': request.form.getlist('event_ids'),
+        }
+        businesses = Business.query.filter_by(is_active=True).all()
+        events = current_user.get_accessible_events()
+
         if not email or not name or not password:
             flash('Email, name and password are required.', 'error')
-            return render_template('admin/user_form.html', user=None, businesses=Business.query.filter_by(is_active=True).all())
+            return render_template('admin/user_form.html', user=None, businesses=businesses, events=events, form_data=form_data)
 
         if not re.match(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$', email):
             flash('Please enter a valid email address.', 'error')
-            return render_template('admin/user_form.html', user=None, businesses=Business.query.filter_by(is_active=True).all())
+            return render_template('admin/user_form.html', user=None, businesses=businesses, events=events, form_data=form_data)
 
         if Admin.query.filter(Admin.username.ilike(email)).first():
             flash('A user with that email already exists.', 'error')
-            return render_template('admin/user_form.html', user=None, businesses=Business.query.filter_by(is_active=True).all())
+            return render_template('admin/user_form.html', user=None, businesses=businesses, events=events, form_data=form_data)
 
         admin = Admin(
             username=email,
@@ -1052,6 +1069,32 @@ def admin_reports():
     return render_template('admin/reports.html', report_data=report_data)
 
 
+@app.route('/admin/reports/event/<int:event_id>/reservations')
+@login_required
+def admin_report_reservations(event_id):
+    event = db.session.get(Event, event_id)
+    if not event or not current_user.can_access_event(event):
+        abort(403)
+    status_filter = request.args.get('status', '')
+    query = Reservation.query.filter_by(event_id=event.id)
+    if status_filter:
+        query = query.filter_by(status=status_filter)
+    reservations = query.order_by(Reservation.name).all()
+    return render_template('admin/report_reservations.html',
+                           event=event, reservations=reservations,
+                           status_filter=status_filter, now=datetime.utcnow())
+
+
+@app.route('/admin/reports/reservation/<int:res_id>')
+@login_required
+def admin_report_booking(res_id):
+    reservation = db.session.get(Reservation, res_id)
+    if not reservation or not current_user.can_access_event(reservation.event):
+        abort(403)
+    return render_template('admin/report_booking.html',
+                           reservation=reservation, event=reservation.event)
+
+
 # ---------------------------------------------------------------------------
 # Admin — maintenance mode (global admin only)
 # ---------------------------------------------------------------------------
@@ -1114,6 +1157,17 @@ def admin_settings():
             settings.smtp_password = smtp_password
         settings.smtp_from_name = smtp_from_name
 
+        icon = request.files.get('app_icon')
+        if icon and icon.filename and allowed_file(icon.filename):
+            icons_dir = os.path.join(app.static_folder, 'icons')
+            os.makedirs(icons_dir, exist_ok=True)
+            img = Image.open(icon).convert('RGBA')
+            for size in [192, 512]:
+                resized = img.resize((size, size), Image.LANCZOS)
+                bg = Image.new('RGB', (size, size), '#0d0d0d')
+                bg.paste(resized, mask=resized.split()[3])
+                bg.save(os.path.join(icons_dir, f'icon-{size}.png'))
+
         db.session.commit()
 
         if settings.smtp_email:
@@ -1124,7 +1178,9 @@ def admin_settings():
         flash('Settings saved.', 'success')
         return redirect(url_for('admin_dashboard'))
 
-    return render_template('admin/settings.html', settings=settings)
+    icon_exists = os.path.exists(os.path.join(app.static_folder, 'icons', 'icon-192.png'))
+    return render_template('admin/settings.html', settings=settings,
+                           icon_exists=icon_exists, now=int(datetime.utcnow().timestamp()))
 
 
 # ---------------------------------------------------------------------------

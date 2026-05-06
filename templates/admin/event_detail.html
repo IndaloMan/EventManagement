@@ -28,6 +28,7 @@
         </div>
         <div class="field-row">
             <label>No fixed end</label>
+            <span style="flex: 1;"></span>
             <input type="checkbox" name="no_fixed_end" id="no_fixed_end"
                    {% if event.end_time_text %}checked{% endif %}
                    style="width: 20px; height: 20px;" onchange="toggleEndFields()">
@@ -74,6 +75,7 @@
         </div>
         <div class="field-row">
             <label>Active</label>
+            <span style="flex: 1;"></span>
             <input type="checkbox" name="is_active" {% if event.is_active %}checked{% endif %} style="width: 20px; height: 20px;">
         </div>
     </div>
