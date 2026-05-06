@@ -79,9 +79,11 @@
     </div>
 
     {% if current_user.role_exact in ('global_admin', 'owner') %}
+    {% set mgr_list = all_managers | selectattr('role', 'equalto', 'event_manager') | list %}
+    {% set sec_list = all_managers | selectattr('role', 'equalto', 'event_security') | list %}
     <div class="field-group">
         <p class="field-group-label">Event Managers</p>
-        {% for mgr in all_managers %}
+        {% for mgr in mgr_list %}
         <div class="field-row">
             <span style="flex: 1; font-size: 0.95rem;">{{ mgr.name }}</span>
             <input type="checkbox" name="manager_ids" value="{{ mgr.id }}"
@@ -89,9 +91,25 @@
                    style="width: 20px; height: 20px;">
         </div>
         {% endfor %}
-        {% if not all_managers %}
+        {% if not mgr_list %}
         <div class="field-row">
             <span style="font-size: 0.85rem; color: var(--text3);">No event managers created yet</span>
+        </div>
+        {% endif %}
+    </div>
+    <div class="field-group">
+        <p class="field-group-label">Security Staff</p>
+        {% for sec in sec_list %}
+        <div class="field-row">
+            <span style="flex: 1; font-size: 0.95rem;">{{ sec.name }}</span>
+            <input type="checkbox" name="manager_ids" value="{{ sec.id }}"
+                   {% if sec in event.managers %}checked{% endif %}
+                   style="width: 20px; height: 20px;">
+        </div>
+        {% endfor %}
+        {% if not sec_list %}
+        <div class="field-row">
+            <span style="font-size: 0.85rem; color: var(--text3);">No security staff created yet</span>
         </div>
         {% endif %}
     </div>

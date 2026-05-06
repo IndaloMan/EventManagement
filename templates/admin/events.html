@@ -30,10 +30,13 @@
             {{ event.tickets_reserved }} reserved
             {% if event.max_capacity > 0 %} / {{ event.max_capacity }}{% endif %}
         </p>
-        {% if event.managers %}
-        <p style="font-size: 0.8rem; color: var(--text3); margin-top: 4px;">
-            Managed by: {{ event.managers | map(attribute='name') | join(', ') }}
-        </p>
+        {% set mgrs = event.managers | selectattr('role', 'equalto', 'event_manager') | list %}
+        {% set sec = event.managers | selectattr('role', 'equalto', 'event_security') | list %}
+        {% if mgrs %}
+        <p style="font-size: 0.8rem; color: var(--text3); margin-top: 4px;">Managed by: {{ mgrs | map(attribute='name') | join(', ') }}</p>
+        {% endif %}
+        {% if sec %}
+        <p style="font-size: 0.8rem; color: var(--text3); margin-top: 2px;">Security: {{ sec | map(attribute='name') | join(', ') }}</p>
         {% endif %}
         {% if event.is_past %}
         <span class="badge badge-cancelled" style="margin: 6px 0;">Past</span>
