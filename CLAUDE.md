@@ -16,6 +16,8 @@ Multi-business event ticket reservation system for Marina Club Gastrobar, Torre 
 | Global Admin (IndaloMan) | Full access — all businesses, users, events, settings |
 | Owner | Manages their businesses, assigns event managers to events |
 | Event Manager | Manages reservations for assigned events only (can span multiple businesses) |
+| Event Security | Scan-only access — admit paid tickets at the door |
+| Cashier | Reservations list + mark as paid at the bar |
 
 ## Reservation Flow
 1. Admin creates event in Google Calendar
@@ -29,17 +31,20 @@ Multi-business event ticket reservation system for Marina Club Gastrobar, Torre 
 
 ## Database Tables
 - `businesses` — name, slug, address, phone, email, website, google_calendar_id, logo
-- `admins` — username, password_hash, name, email, phone, role (global_admin/owner/event_manager)
+- `admins` — username, password_hash, name, email, phone, role (global_admin/owner/event_manager/event_security/cashier)
 - `admin_businesses` — links owners to businesses
-- `events` — business_id, gcal_event_id, title, dates, price, capacity, includes, dress_code, poster
+- `events` — business_id, gcal_event_id, event_code (6-char unique ID), title, dates, price, capacity, includes, dress_code, poster, terms, is_active
 - `event_managers` — links event managers to events
-- `reservations` — event_id, reference_code, name, email, phone, num_tickets, status (pending/paid/cancelled)
+- `reservations` — event_id, reference_code, name, email, phone, num_tickets, status (pending/paid/cancelled), is_comp
+- `app_settings` — singleton (id=1): promo_display_name, promo_full_name, promo_description, smtp_email, smtp_password, smtp_from_name
+- `reservation_logs` — audit trail: reservation_id, admin_id, action, notes, created_at
 
 ## Key URLs
 | URL | Purpose |
 |---|---|
 | `/b/<slug>` | Public event listing for a business |
 | `/reserve/<event_id>` | Public reservation form (QR target) |
+| `/reservation/<reference_code>` | Guest self-service — view/update/cancel reservation |
 | `/embed/b/<slug>` | Embeddable event listing (no header/nav) |
 | `/embed/<event_id>` | Embeddable reservation form |
 | `/admin` | Admin dashboard |
@@ -47,27 +52,43 @@ Multi-business event ticket reservation system for Marina Club Gastrobar, Torre 
 | `/admin/users` | User management (global admin + owner) |
 | `/admin/events` | Event list + sync |
 | `/admin/events/<id>` | Event config + reservations + manager assignment |
+| `/admin/events/new` | Create manual event (no GCal required) |
 | `/admin/reservations` | All reservations (filterable by event/status) |
+| `/admin/reservations/<id>` | Reservation detail + audit trail |
 | `/admin/reports` | Revenue and ticket stats per event |
+| `/admin/scan` | QR scan entry point |
+| `/admin/scan/<reference_code>` | Scan result — pay / comp / admit / cancel |
+| `/admin/settings` | App name + SMTP email settings (owner+) |
+| `/admin/maintenance` | DB maintenance tools (global admin only) |
 
 ## File Structure
 ```
 app.py              — Flask routes (public + admin, role-based access)
-models.py           — SQLAlchemy models (6 tables)
+models.py           — SQLAlchemy models (8 tables)
 config.py           — Configuration (DB path, upload folder, calendar ID)
 calendar_sync.py    — Google Calendar API read-only integration
 qr_generator.py     — QR code PNG generation per event
-requirements.txt    — Flask, SQLAlchemy, Flask-Login, MSAL, google-api, qrcode, Pillow, gunicorn
+email_sender.py     — Gmail SMTP: confirmation, cancellation, password reset emails
+requirements.txt    — Flask, SQLAlchemy, Flask-Login, google-api, qrcode, Pillow, gunicorn
 static/css/style.css — Dark PWA theme (standard UI spec)
-static/js/app.js    — Minimal JS (flash auto-dismiss)
-static/manifest.json — PWA manifest
+static/js/app.js    — Minimal JS (flash auto-dismiss, dirty form tracking)
+templates/base.html — App shell: header, hamburger nav, bottom tab nav
 templates/          — Jinja2 templates (base, public pages, admin pages)
 ```
 
-## Current Status (4 May 2026)
-- Project scaffolding complete — all routes, models, templates built
+## Key Behaviours
+- **Euro formatting:** `fmt_eur` Jinja2 filter — strips trailing zeros (35.0 → 35, 35.5 → 35.5)
+- **Comp tickets:** `is_comp=True` on a reservation excludes it from revenue reports; requires event_manager role to apply
+- **Audit trail:** Every status change on a reservation is logged to `reservation_logs` with admin and timestamp
+- **Dirty form tracking:** Edit forms show muted Save button until a field changes; `beforeunload` warning on unsaved changes
+- **Hamburger menu:** Mobile only (≤768px), right-anchored, auto-width to content, UPPERCASE labels
+- **App name:** Configurable via `/admin/settings` — stored in `app_settings`, injected globally via context processor
+- **Event codes:** 6-character unique identifier (e.g. `A3F9C2`) auto-generated per event; displayed read-only on event form
+
+## Current Status (6 May 2026)
+- Fully functional and tested locally
 - Git repo: https://github.com/IndaloMan/EventManagement (private)
-- NOT YET DONE: local testing, Google Calendar service account setup, GCloud deployment
+- NOT YET DONE: Google Calendar service account setup, GCloud deployment
 - Default admin: username `admin`, password `changeme` (created on first run)
 
 ## Businesses (known)
