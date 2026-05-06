@@ -27,7 +27,7 @@ login_manager.login_view = 'admin_login'
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'}
 
-PUBLIC_ROUTES = ('index', 'business_events', 'reserve', 'reservation_manage',
+PUBLIC_ROUTES = ('index', 'business_events', 'business_flyer', 'reserve', 'reservation_manage',
                  'embed_event', 'embed_business', 'static', 'manifest_json')
 
 
@@ -346,6 +346,18 @@ def embed_business(slug):
             Event.start_time >= datetime.utcnow()
         ).order_by(Event.start_time).all()
     return render_template('embed_business.html', business=business, events=events)
+
+
+@app.route('/b/<slug>/flyer')
+def business_flyer(slug):
+    """Standalone event listing page for embedding on external websites."""
+    business = Business.query.filter_by(slug=slug, is_active=True).first_or_404()
+    events = Event.query.filter(
+        Event.business_id == business.id,
+        Event.is_active == True,
+        Event.start_time >= datetime.utcnow()
+    ).order_by(Event.start_time).all()
+    return render_template('business_flyer.html', business=business, events=events)
 
 
 # ---------------------------------------------------------------------------

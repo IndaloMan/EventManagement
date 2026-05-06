@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="{{ lang | default('en') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ business.name }} — {{ t.upcoming_events }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body { padding: 16px; }
+        .flyer-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .flyer-header img { max-height: 48px; border-radius: 8px; }
+        .flyer-header h1 { font-size: 1.2rem; font-weight: 700; }
+        .event-card {
+            background: var(--surface);
+            border-radius: 14px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .event-card-body { padding: 14px; }
+        .event-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="flyer-header">
+        {% if business.logo_filename %}
+        <img src="{{ url_for('static', filename='uploads/' + business.logo_filename) }}" alt="{{ business.name }}">
+        {% endif %}
+        <h1>{{ business.name }}</h1>
+    </div>
+
+    <p class="section-title">{{ t.upcoming_events }}</p>
+
+    {% if events %}
+    {% for event in events %}
+    <div class="event-card">
+        {% set poster = event_file(event, 'poster', lang) %}
+        {% if poster %}
+        <img src="{{ url_for('static', filename='uploads/' + poster) }}" alt="{{ event.title }}" class="event-poster" style="border-radius: 0;">
+        {% endif %}
+        <div class="event-card-body">
+            <p class="event-title">{{ event.title }}</p>
+
+            <div class="event-detail">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                {{ event.start_time | fmt_date(lang) }}{% if event.end_time_text %} — {{ event.end_time_text }}{% elif event.end_time %} — {{ event.end_time.strftime('%H:%M') }}{% endif %}
+            </div>
+
+            {% if event.location %}
+            <div class="event-detail">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                {{ event.location }}
+            </div>
+            {% endif %}
+
+            {% if event.includes %}
+            <div class="event-detail">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                {{ event.includes }}
+            </div>
+            {% endif %}
+
+            {% if event.price > 0 %}
+            <div class="event-price">&euro;{{ event.price|fmt_eur }} {{ t.per_person }}</div>
+            {% else %}
+            <div class="event-price">{{ t.free_entry }}</div>
+            {% endif %}
+
+            {% if event.is_sold_out %}
+            <p class="event-sold-out" style="margin-top: 10px;">{{ t.sold_out }}</p>
+            {% else %}
+            <a href="{{ url_for('reserve', event_id=event.id, lang=lang) }}" class="btn btn-primary" style="margin-top: 12px;">{{ t.btn_reserve }}</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="text-align: center; padding: 40px 0; color: var(--text3);">
+        <p style="font-size: 1.1rem; font-weight: 600;">{{ t.no_events_heading }}</p>
+        <p style="font-size: 0.85rem; margin-top: 6px;">{{ t.no_events_sub }}</p>
+    </div>
+    {% endif %}
+</body>
+</html>
