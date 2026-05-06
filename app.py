@@ -1237,7 +1237,8 @@ def init_db():
             app.config['SMTP_PASSWORD'] = settings.smtp_password
 
 
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+init_db()
+
 if __name__ == '__main__':
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    init_db()
     app.run(debug=True, host='0.0.0.0', port=5000)
