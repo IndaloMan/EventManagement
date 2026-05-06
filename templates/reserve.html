@@ -29,7 +29,7 @@
     </div>
 </div>
 
-<form method="POST" action="{{ url_for('reserve', event_id=event.id) }}">
+<form method="POST" action="{{ url_for('reserve', event_id=event.id, lang=lang) }}">
     <div class="field-group">
         <p class="field-group-label">{{ t.your_details }}</p>
         <div class="field-row">
