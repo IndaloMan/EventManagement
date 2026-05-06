@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ business.name }} — Events{% endblock %}
+{% block title %}{{ business.name }} — {{ t.upcoming_events }}{% endblock %}
 {% block content %}
 <div style="margin-bottom: 16px;">
     {% if business.logo_filename %}
@@ -11,14 +11,14 @@
     {% endif %}
 </div>
 
-<p class="section-title">Upcoming Events</p>
+<p class="section-title">{{ t.upcoming_events }}</p>
 
 {% if events %}
 {% for event in events %}
 <div class="card" onclick="this.classList.toggle('expanded')">
     <div class="card-header">
         <span class="card-title">{{ event.title }}</span>
-        <span class="card-meta">{{ event.start_time.strftime('%a %d %b %Y') }}</span>
+        <span class="card-meta">{{ event.start_time | fmt_date(lang, 'short') }}</span>
         <span class="card-chevron">&rsaquo;</span>
     </div>
     <div class="card-body">
@@ -28,7 +28,7 @@
 
         <div class="event-detail">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            {{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}{% if event.end_time_text %} — {{ event.end_time_text }}{% elif event.end_time %} — {{ event.end_time.strftime('%H:%M') }}{% endif %}
+            {{ event.start_time | fmt_date(lang) }}{% if event.end_time_text %} — {{ event.end_time_text }}{% elif event.end_time %} — {{ event.end_time.strftime('%H:%M') }}{% endif %}
         </div>
 
         {% if event.location %}
@@ -53,15 +53,15 @@
         {% endif %}
 
         {% if event.price > 0 %}
-        <div class="event-price">&euro;{{ event.price|fmt_eur }} per person</div>
+        <div class="event-price">&euro;{{ event.price|fmt_eur }} {{ t.per_person }}</div>
         {% else %}
-        <div class="event-price">Free entry</div>
+        <div class="event-price">{{ t.free_entry }}</div>
         {% endif %}
 
         {% if event.is_sold_out %}
-        <p class="event-sold-out">SOLD OUT</p>
+        <p class="event-sold-out">{{ t.sold_out }}</p>
         {% elif event.max_capacity > 0 %}
-        <p class="event-tickets">{{ event.tickets_available }} tickets remaining</p>
+        <p class="event-tickets">{{ event.tickets_available }} {{ t.tickets_remaining }}</p>
         {% endif %}
 
         {% if event.description %}
@@ -69,19 +69,19 @@
         {% endif %}
 
         {% if not event.is_sold_out %}
-        <a href="{{ url_for('reserve', event_id=event.id) }}" class="btn btn-primary" style="margin-top: 12px;">Reserve Tickets</a>
+        <a href="{{ url_for('reserve', event_id=event.id) }}" class="btn btn-primary" style="margin-top: 12px;">{{ t.btn_reserve }}</a>
         {% endif %}
     </div>
 </div>
 {% endfor %}
 {% else %}
 <div style="text-align: center; padding: 40px 0; color: var(--text3);">
-    <p style="font-size: 1.1rem; font-weight: 600;">No upcoming events</p>
-    <p style="font-size: 0.85rem; margin-top: 6px;">Check back soon!</p>
+    <p style="font-size: 1.1rem; font-weight: 600;">{{ t.no_events_heading }}</p>
+    <p style="font-size: 0.85rem; margin-top: 6px;">{{ t.no_events_sub }}</p>
 </div>
 {% endif %}
 
 <div style="margin-top: 16px;">
-    <a href="{{ url_for('index') }}" class="btn btn-surface" style="width: 100%;">All Venues</a>
+    <a href="{{ url_for('index') }}" class="btn btn-surface" style="width: 100%;">{{ t.btn_all_venues }}</a>
 </div>
 {% endblock %}

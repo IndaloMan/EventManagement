@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ app_settings.promo_display_name }}{% endblock %}
 {% block content %}
-<p class="section-title">Venues</p>
+<p class="section-title">{{ t.venues }}</p>
 
 {% for business in businesses %}
 <a href="{{ url_for('business_events', slug=business.slug) }}" class="card" style="display: block; text-decoration: none; color: inherit;">
@@ -14,7 +14,7 @@
 
 {% if not businesses %}
 <div style="text-align: center; padding: 40px 0; color: var(--text3);">
-    <p style="font-size: 1.1rem; font-weight: 600;">No venues available</p>
+    <p style="font-size: 1.1rem; font-weight: 600;">{{ t.no_venues }}</p>
 </div>
 {% endif %}
 {% endblock %}

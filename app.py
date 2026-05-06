@@ -16,6 +16,7 @@ from models import db, Admin, Business, Event, Reservation, ReservationLog, Main
 from calendar_sync import fetch_upcoming_events
 from qr_generator import generate_event_qr, generate_reference_qr_base64
 from email_sender import send_confirmation_email, send_cancellation_email, send_password_reset_email
+from translations import TRANSLATIONS, format_date_long, format_date_short
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -30,12 +31,22 @@ PUBLIC_ROUTES = ('index', 'business_events', 'reserve', 'reservation_manage',
                  'embed_event', 'embed_business', 'static', 'manifest_json')
 
 
+def get_lang():
+    """Detect language from URL param or browser Accept-Language header."""
+    lang = request.args.get('lang', '').lower()
+    if lang in ('en', 'es'):
+        return lang
+    best = request.accept_languages.best_match(['es', 'en'], default='en')
+    return best
+
+
 @app.context_processor
-def inject_app_settings():
+def inject_globals():
     settings = AppSettings.query.first()
     if not settings:
         settings = AppSettings()
-    return {'app_settings': settings}
+    lang = get_lang()
+    return {'app_settings': settings, 't': TRANSLATIONS[lang], 'lang': lang}
 
 
 @app.before_request
@@ -80,6 +91,15 @@ def fmt_eur(value):
     if not value:
         return '0'
     return '{:g}'.format(float(value))
+
+
+@app.template_filter('fmt_date')
+def fmt_date_filter(dt, lang='en', style='long'):
+    if dt is None:
+        return ''
+    if style == 'short':
+        return format_date_short(dt, lang)
+    return format_date_long(dt, lang)
 
 
 def generate_event_code():
@@ -198,7 +218,7 @@ def reserve(event_id):
             f"{app.config['APP_URL']}/admin/scan/{reservation.reference_code}")
         settings = AppSettings.query.first()
         email_sent = send_confirmation_email(app.config, reservation, event, ref_qr_base64,
-                                             settings=settings)
+                                             settings=settings, lang=get_lang())
         if email_sent:
             log_reservation(reservation.id, 'email_sent',
                             notes=f'Confirmation sent to {reservation.email}')
@@ -242,7 +262,7 @@ def reservation_manage(reference_code):
                 f"{app.config['APP_URL']}/admin/scan/{reservation.reference_code}")
             _settings = AppSettings.query.first()
             send_confirmation_email(app.config, reservation, event, ref_qr_base64,
-                                    settings=_settings)
+                                    settings=_settings, lang=get_lang())
             log_reservation(reservation.id, 'email_sent',
                             notes=f'Updated confirmation sent to {reservation.email}')
             db.session.commit()

@@ -1,28 +1,28 @@
 {% extends "base.html" %}
-{% block title %}Reservation Confirmed{% endblock %}
+{% block title %}{{ t.reservation_confirmed_title }}{% endblock %}
 {% block content %}
 <div class="confirmation-box">
     <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="2" width="48" height="48" style="margin-bottom: 12px;">
         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
     </svg>
-    <h2 style="font-size: 1.25rem; font-weight: 700;">Reservation Confirmed!</h2>
-    <p style="font-size: 0.85rem; color: var(--text2); margin-top: 6px;">Your reference code:</p>
+    <h2 style="font-size: 1.25rem; font-weight: 700;">{{ t.confirmed_heading }}</h2>
+    <p style="font-size: 0.85rem; color: var(--text2); margin-top: 6px;">{{ t.your_reference }}</p>
     <div class="confirmation-ref">{{ reservation.reference_code }}</div>
     <p class="confirmation-detail">{{ event.title }}</p>
-    <p class="confirmation-detail">{{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}</p>
-    <p class="confirmation-detail">{{ reservation.num_tickets }} ticket{% if reservation.num_tickets > 1 %}s{% endif %}</p>
+    <p class="confirmation-detail">{{ event.start_time | fmt_date(lang) }}</p>
+    <p class="confirmation-detail">{{ reservation.num_tickets }} {% if reservation.num_tickets > 1 %}{{ t.ticket_plural }}{% else %}{{ t.ticket_singular }}{% endif %}</p>
     {% if event.price > 0 %}
     <p class="confirmation-detail" style="font-weight: 600; color: var(--accent2);">
-        Total: &euro;{{ (event.price * reservation.num_tickets)|fmt_eur }}
+        {{ t.total_label }} &euro;{{ (event.price * reservation.num_tickets)|fmt_eur }}
     </p>
     {% endif %}
 </div>
 
 <div style="text-align: center; font-size: 0.85rem; color: var(--text2); margin: 16px 0;">
-    <p>Confirmation sent to {{ reservation.email }}</p>
-    <p style="margin-top: 6px;">Please show this reference code when you arrive.</p>
+    <p>{{ t.confirmation_sent.format(email=reservation.email) }}</p>
+    <p style="margin-top: 6px;">{{ t.show_reference }}</p>
     {% if event.price > 0 %}
-    <p style="margin-top: 6px;">Payment is made at the {{ event.business.name }} bar.</p>
+    <p style="margin-top: 6px;">{{ t.payment_bar.format(business=event.business.name) }}</p>
     {% endif %}
 </div>
 

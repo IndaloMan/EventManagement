@@ -1,54 +1,54 @@
 {% extends "base.html" %}
-{% block title %}Reservation {{ reservation.reference_code }}{% endblock %}
+{% block title %}{{ t.your_reservation }} {{ reservation.reference_code }}{% endblock %}
 {% block content %}
-<p class="section-title">Your Reservation</p>
+<p class="section-title">{{ t.your_reservation }}</p>
 
 <div class="field-group">
     <div class="field-row">
-        <label>Reference</label>
+        <label>{{ t.label_reference }}</label>
         <span style="font-size: 1.1rem; font-weight: 700; color: var(--accent); letter-spacing: 1px;">{{ reservation.reference_code }}</span>
     </div>
     <div class="field-row">
-        <label>Status</label>
-        <span class="badge badge-{{ reservation.status }}">{{ reservation.status }}</span>
+        <label>{{ t.label_status }}</label>
+        <span class="badge badge-{{ reservation.status }}">{{ t['status_' ~ reservation.status] }}</span>
     </div>
 </div>
 
 <div class="field-group">
-    <p class="field-group-label">Event</p>
+    <p class="field-group-label">{{ t.label_event }}</p>
     <div class="field-row">
-        <label>Title</label>
+        <label>{{ t.label_title }}</label>
         <span style="font-size: 0.95rem;">{{ event.title }}</span>
     </div>
     <div class="field-row">
-        <label>Venue</label>
+        <label>{{ t.label_venue }}</label>
         <span style="font-size: 0.95rem;">{{ event.business.name }}</span>
     </div>
     <div class="field-row">
-        <label>Date</label>
-        <span style="font-size: 0.95rem;">{{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}{% if event.end_time_text %} — {{ event.end_time_text }}{% elif event.end_time %} — {{ event.end_time.strftime('%H:%M') }}{% endif %}</span>
+        <label>{{ t.label_date }}</label>
+        <span style="font-size: 0.95rem;">{{ event.start_time | fmt_date(lang) }}{% if event.end_time_text %} — {{ event.end_time_text }}{% elif event.end_time %} — {{ event.end_time.strftime('%H:%M') }}{% endif %}</span>
     </div>
     {% if event.location %}
     <div class="field-row">
-        <label>Location</label>
+        <label>{{ t.label_location }}</label>
         <span style="font-size: 0.95rem;">{{ event.location }}</span>
     </div>
     {% endif %}
 </div>
 
 <div class="field-group">
-    <p class="field-group-label">Your Details</p>
+    <p class="field-group-label">{{ t.your_details }}</p>
     <div class="field-row">
-        <label>Name</label>
+        <label>{{ t.label_name_display }}</label>
         <span style="font-size: 0.95rem;">{{ reservation.name }}</span>
     </div>
     <div class="field-row">
-        <label>Tickets</label>
+        <label>{{ t.label_tickets }}</label>
         <span style="font-size: 0.95rem;">{{ reservation.num_tickets }}</span>
     </div>
     {% if event.price > 0 %}
     <div class="field-row">
-        <label>Total</label>
+        <label>{{ t.label_total }}</label>
         <span style="font-size: 0.95rem; font-weight: 600; color: var(--accent2);">&euro;{{ (event.price * reservation.num_tickets)|fmt_eur }}</span>
     </div>
     {% endif %}
@@ -58,9 +58,9 @@
 <form method="POST" action="{{ url_for('reservation_manage', reference_code=reservation.reference_code) }}">
     <input type="hidden" name="action" value="update">
     <div class="field-group">
-        <p class="field-group-label">Change Tickets</p>
+        <p class="field-group-label">{{ t.change_tickets }}</p>
         <div class="field-row">
-            <label for="num_tickets">Quantity</label>
+            <label for="num_tickets">{{ t.label_quantity }}</label>
             <select id="num_tickets" name="num_tickets">
                 {% set max_qty = event.max_capacity - (event.tickets_reserved - reservation.num_tickets) if event.max_capacity > 0 else 10 %}
                 {% set limit = [max_qty, 10] | min %}
@@ -70,7 +70,7 @@
             </select>
         </div>
     </div>
-    <button type="submit" class="btn btn-success" style="width: 100%;">Update Reservation</button>
+    <button type="submit" class="btn btn-success" style="width: 100%;">{{ t.btn_update }}</button>
 </form>
 
 <div style="margin-top: 24px; border: 1px solid var(--danger); border-radius: 12px; padding: 14px;">
@@ -78,9 +78,9 @@
         <input type="hidden" name="action" value="cancel">
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
             <input type="checkbox" id="confirm-cancel" style="width: 20px; height: 20px; flex-shrink: 0;">
-            <label for="confirm-cancel" style="font-size: 0.85rem; color: var(--danger);">Do you really want to cancel this reservation?</label>
+            <label for="confirm-cancel" style="font-size: 0.85rem; color: var(--danger);">{{ t.confirm_cancel_question }}</label>
         </div>
-        <button type="submit" class="btn" id="cancel-btn" style="width: 100%; background: var(--danger); opacity: 0.45;" disabled>Cancel Reservation</button>
+        <button type="submit" class="btn" id="cancel-btn" style="width: 100%; background: var(--danger); opacity: 0.45;" disabled>{{ t.btn_cancel_reservation }}</button>
     </form>
 </div>
 
@@ -94,13 +94,13 @@ document.getElementById('confirm-cancel').addEventListener('change', function() 
 
 {% elif reservation.status == 'cancelled' %}
 <div style="text-align: center; padding: 20px; border: 1px solid var(--danger); border-radius: 12px; margin-top: 16px;">
-    <p style="color: var(--danger); font-size: 0.95rem; font-weight: 600;">This reservation has been cancelled.</p>
+    <p style="color: var(--danger); font-size: 0.95rem; font-weight: 600;">{{ t.status_cancelled_msg }}</p>
 </div>
 
 {% elif reservation.status == 'paid' %}
 <div style="text-align: center; padding: 20px; border: 1px solid var(--accent2); border-radius: 12px; margin-top: 16px;">
-    <p style="color: var(--accent2); font-size: 0.95rem; font-weight: 600;">This reservation has been paid.</p>
-    <p style="color: var(--text2); font-size: 0.85rem; margin-top: 8px;">Please show your reference code or QR code at the door.</p>
+    <p style="color: var(--accent2); font-size: 0.95rem; font-weight: 600;">{{ t.status_paid_msg }}</p>
+    <p style="color: var(--text2); font-size: 0.85rem; margin-top: 8px;">{{ t.show_qr }}</p>
 </div>
 {% endif %}
 {% endblock %}

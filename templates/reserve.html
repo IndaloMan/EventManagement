@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Reserve — {{ event.title }}{% endblock %}
+{% block title %}{{ t.reserve_tickets }} — {{ event.title }}{% endblock %}
 {% block content %}
-<p class="section-title">Reserve Tickets</p>
+<p class="section-title">{{ t.reserve_tickets }}</p>
 
 <div class="card expanded" style="border: 1px solid var(--border); margin-bottom: 16px;">
     <div class="card-body" style="display: block; padding: 14px;">
@@ -11,7 +11,7 @@
         <h2 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 8px;">{{ event.title }}</h2>
         <div class="event-detail">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            {{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}{% if event.end_time_text %} — {{ event.end_time_text }}{% elif event.end_time %} — {{ event.end_time.strftime('%H:%M') }}{% endif %}
+            {{ event.start_time | fmt_date(lang) }}{% if event.end_time_text %} — {{ event.end_time_text }}{% elif event.end_time %} — {{ event.end_time.strftime('%H:%M') }}{% endif %}
         </div>
         {% if event.location %}
         <div class="event-detail">
@@ -20,35 +20,35 @@
         </div>
         {% endif %}
         {% if event.price > 0 %}
-        <div class="event-price">&euro;{{ event.price|fmt_eur }} per person</div>
+        <div class="event-price">&euro;{{ event.price|fmt_eur }} {{ t.per_person }}</div>
         {% endif %}
         {% if event.max_capacity > 0 and event.tickets_available is not none %}
-        <p class="event-tickets">{{ event.tickets_available }} tickets remaining</p>
+        <p class="event-tickets">{{ event.tickets_available }} {{ t.tickets_remaining }}</p>
         {% endif %}
     </div>
 </div>
 
 <form method="POST" action="{{ url_for('reserve', event_id=event.id) }}">
     <div class="field-group">
-        <p class="field-group-label">Your Details</p>
+        <p class="field-group-label">{{ t.your_details }}</p>
         <div class="field-row">
-            <label for="name">Name <span style="color: var(--danger);">*</span></label>
-            <input type="text" id="name" name="name" placeholder="Full name" required>
+            <label for="name">{{ t.label_name }} <span style="color: var(--danger);">*</span></label>
+            <input type="text" id="name" name="name" placeholder="{{ t.placeholder_name }}" required>
         </div>
         <div class="field-row">
-            <label for="email">Email <span style="color: var(--danger);">*</span></label>
-            <input type="email" id="email" name="email" placeholder="For confirmation" required>
+            <label for="email">{{ t.label_email }} <span style="color: var(--danger);">*</span></label>
+            <input type="email" id="email" name="email" placeholder="{{ t.placeholder_email }}" required>
         </div>
         <div class="field-row">
-            <label for="phone">Phone</label>
-            <input type="tel" id="phone" name="phone" placeholder="Optional">
+            <label for="phone">{{ t.label_phone }}</label>
+            <input type="tel" id="phone" name="phone" placeholder="{{ t.placeholder_phone }}">
         </div>
     </div>
 
     <div class="field-group">
-        <p class="field-group-label">Tickets</p>
+        <p class="field-group-label">{{ t.label_tickets }}</p>
         <div class="field-row">
-            <label for="num_tickets">Quantity</label>
+            <label for="num_tickets">{{ t.label_quantity }}</label>
             <select id="num_tickets" name="num_tickets">
                 {% set max_qty = event.tickets_available if event.tickets_available is not none else 10 %}
                 {% set limit = [max_qty, 10] | min %}
@@ -63,20 +63,20 @@
     <div class="field-group">
         <div style="display: flex; align-items: center; gap: 8px; padding: 10px 14px;">
             <input type="checkbox" id="agree_terms" name="agree_terms" value="1" required style="width: 18px; height: 18px; flex-shrink: 0;">
-            <label for="agree_terms" style="font-size: 0.85rem; color: var(--text2); white-space: nowrap;">I agree to the <a href="{{ url_for('static', filename='uploads/' + event.terms_filename) }}" target="_blank" style="color: var(--accent);">Terms &amp; Conditions</a></label>
+            <label for="agree_terms" style="font-size: 0.85rem; color: var(--text2); white-space: nowrap;">{{ t.agree_terms_prefix }} <a href="{{ url_for('static', filename='uploads/' + event.terms_filename) }}" target="_blank" style="color: var(--accent);">{{ t.terms_link }}</a></label>
         </div>
     </div>
     {% endif %}
 
     {% if event.price > 0 %}
     <p style="font-size: 0.8rem; color: var(--text3); text-align: center; margin-bottom: 12px;">
-        Payment is made at the {{ event.business.name }} bar. This form reserves your place.
+        {{ t.payment_note.format(business=event.business.name) }}
     </p>
     {% endif %}
 
     <div class="btn-row" style="margin-top: 16px;">
-        <button type="submit" class="btn btn-success" style="flex: 1;">Confirm Reservation</button>
-        <a href="{{ url_for('business_events', slug=event.business.slug) }}" class="btn btn-surface" style="flex: 1;">Cancel</a>
+        <button type="submit" class="btn btn-success" style="flex: 1;">{{ t.btn_confirm }}</button>
+        <a href="{{ url_for('business_events', slug=event.business.slug) }}" class="btn btn-surface" style="flex: 1;">{{ t.btn_cancel }}</a>
     </div>
 </form>
 {% endblock %}
