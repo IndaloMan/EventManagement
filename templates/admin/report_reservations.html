@@ -24,12 +24,12 @@
 </style>
 
 <div class="no-print" style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
-    <a href="{{ url_for('admin_reports') }}" class="btn btn-surface btn-sm">← Reports</a>
-    <button onclick="window.print()" class="btn btn-primary btn-sm">Print / Save PDF</button>
-    <a href="{{ url_for('admin_report_reservations', event_id=event.id) }}" class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-surface{% endif %}">All</a>
-    <a href="{{ url_for('admin_report_reservations', event_id=event.id, status='paid') }}" class="btn btn-sm {% if status_filter == 'paid' %}btn-success{% else %}btn-surface{% endif %}">Paid</a>
-    <a href="{{ url_for('admin_report_reservations', event_id=event.id, status='pending') }}" class="btn btn-sm {% if status_filter == 'pending' %}btn-primary{% else %}btn-surface{% endif %}">Pending</a>
-    <a href="{{ url_for('admin_report_reservations', event_id=event.id, status='cancelled') }}" class="btn btn-sm {% if status_filter == 'cancelled' %}btn-danger{% else %}btn-surface{% endif %}">Cancelled</a>
+    <a href="{{ url_for('admin_reports') }}" class="btn btn-back">← Reports</a>
+    <button onclick="window.print()" class="btn btn-primary">Print / Save PDF</button>
+    <a href="{{ url_for('admin_report_reservations', event_id=event.id) }}" class="btn {% if not status_filter %}btn-primary{% else %}btn-surface{% endif %}">All</a>
+    <a href="{{ url_for('admin_report_reservations', event_id=event.id, status='paid') }}" class="btn {% if status_filter == 'paid' %}btn-success{% else %}btn-surface{% endif %}">Paid</a>
+    <a href="{{ url_for('admin_report_reservations', event_id=event.id, status='pending') }}" class="btn {% if status_filter == 'pending' %}btn-primary{% else %}btn-surface{% endif %}">Pending</a>
+    <a href="{{ url_for('admin_report_reservations', event_id=event.id, status='cancelled') }}" class="btn {% if status_filter == 'cancelled' %}btn-danger{% else %}btn-surface{% endif %}">Cancelled</a>
 </div>
 
 <div class="report-header">

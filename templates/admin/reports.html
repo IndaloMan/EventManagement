@@ -53,10 +53,10 @@
         {% endif %}
 
         <div class="btn-row" style="margin-top: 14px;">
-            <a href="{{ url_for('admin_report_reservations', event_id=data.event.id) }}" class="btn btn-surface btn-sm" style="flex: 1;">All Reservations</a>
-            <a href="{{ url_for('admin_report_reservations', event_id=data.event.id, status='paid') }}" class="btn btn-surface btn-sm" style="flex: 1;">Paid</a>
-            <a href="{{ url_for('admin_report_reservations', event_id=data.event.id, status='pending') }}" class="btn btn-surface btn-sm" style="flex: 1;">Pending</a>
-            <a href="{{ url_for('admin_report_reservations', event_id=data.event.id, status='cancelled') }}" class="btn btn-surface btn-sm" style="flex: 1;">Cancelled</a>
+            <a href="{{ url_for('admin_report_reservations', event_id=data.event.id) }}" class="btn btn-surface" style="flex: 1;">All Reservations</a>
+            <a href="{{ url_for('admin_report_reservations', event_id=data.event.id, status='paid') }}" class="btn btn-surface" style="flex: 1;">Paid</a>
+            <a href="{{ url_for('admin_report_reservations', event_id=data.event.id, status='pending') }}" class="btn btn-surface" style="flex: 1;">Pending</a>
+            <a href="{{ url_for('admin_report_reservations', event_id=data.event.id, status='cancelled') }}" class="btn btn-surface" style="flex: 1;">Cancelled</a>
         </div>
     </div>
 </div>
@@ -67,6 +67,6 @@
 {% endif %}
 
 <div style="margin-top: 16px;">
-    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-surface" style="width: 100%;">Back to Dashboard</a>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-back" style="width: 100%;">Back</a>
 </div>
 {% endblock %}

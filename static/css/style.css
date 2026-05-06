@@ -203,6 +203,7 @@ body {
 .btn-success { background: var(--accent2); width: 100%; }
 .btn-danger { background: var(--danger); }
 .btn-surface { background: #48484a; color: var(--text); }
+.btn-back { background: #6E4AC7; color: var(--text); }
 
 .btn-sm {
     border-radius: 8px;
