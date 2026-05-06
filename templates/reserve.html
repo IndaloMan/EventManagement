@@ -5,8 +5,9 @@
 
 <div class="card expanded" style="border: 1px solid var(--border); margin-bottom: 16px;">
     <div class="card-body" style="display: block; padding: 14px;">
-        {% if event.poster_filename %}
-        <img src="{{ url_for('static', filename='uploads/' + event.poster_filename) }}" alt="{{ event.title }}" class="event-poster">
+        {% set poster = event_file(event, 'poster', lang) %}
+        {% if poster %}
+        <img src="{{ url_for('static', filename='uploads/' + poster) }}" alt="{{ event.title }}" class="event-poster">
         {% endif %}
         <h2 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 8px;">{{ event.title }}</h2>
         <div class="event-detail">
@@ -59,11 +60,12 @@
         </div>
     </div>
 
-    {% if event.terms_filename %}
+    {% set terms = event_file(event, 'terms', lang) %}
+    {% if terms %}
     <div class="field-group">
         <div style="display: flex; align-items: center; gap: 8px; padding: 10px 14px;">
             <input type="checkbox" id="agree_terms" name="agree_terms" value="1" required style="width: 18px; height: 18px; flex-shrink: 0;">
-            <label for="agree_terms" style="font-size: 0.85rem; color: var(--text2); white-space: nowrap;">{{ t.agree_terms_prefix }} <a href="{{ url_for('static', filename='uploads/' + event.terms_filename) }}" target="_blank" style="color: var(--accent);">{{ t.terms_link }}</a></label>
+            <label for="agree_terms" style="font-size: 0.85rem; color: var(--text2); white-space: nowrap;">{{ t.agree_terms_prefix }} <a href="{{ url_for('static', filename='uploads/' + terms) }}" target="_blank" style="color: var(--accent);">{{ t.terms_link }}</a></label>
         </div>
     </div>
     {% endif %}

@@ -22,8 +22,9 @@
         <span class="card-chevron">&rsaquo;</span>
     </div>
     <div class="card-body">
-        {% if event.poster_filename %}
-        <img src="{{ url_for('static', filename='uploads/' + event.poster_filename) }}" alt="{{ event.title }}" class="event-poster">
+        {% set poster = event_file(event, 'poster', lang) %}
+        {% if poster %}
+        <img src="{{ url_for('static', filename='uploads/' + poster) }}" alt="{{ event.title }}" class="event-poster">
         {% endif %}
 
         <div class="event-detail">

@@ -104,36 +104,44 @@
 
     <div class="field-group">
         <p class="field-group-label">Event Poster</p>
-        <div style="padding: 14px;">
-            {% if event.poster_filename %}
-            <img src="{{ url_for('static', filename='uploads/' + event.poster_filename) }}" alt="Poster" class="event-poster" style="margin-bottom: 10px;">
-            <div style="font-size: 0.8rem; color: var(--text3); margin-bottom: 8px;">Current: {{ event.poster_filename }}</div>
+        {% for code, name in supported_languages %}
+        {% set current_poster = event_file(event, 'poster', code) %}
+        <div style="padding: 12px 14px; {% if not loop.last %}border-bottom: 1px solid var(--border);{% endif %}">
+            <p style="font-size: 0.75rem; color: var(--text3); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">{{ name }}</p>
+            {% if current_poster %}
+            <img src="{{ url_for('static', filename='uploads/' + current_poster) }}" alt="Poster" class="event-poster" style="margin-bottom: 8px;">
+            <div style="font-size: 0.75rem; color: var(--text3); margin-bottom: 8px;">{{ current_poster }}</div>
             {% endif %}
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 <label class="btn btn-surface btn-sm" style="cursor: pointer; margin: 0;">
-                    {% if event.poster_filename %}Change File{% else %}Choose File{% endif %}
-                    <input type="file" name="poster" accept="image/*" style="display: none;" onchange="showChosen(this, 'poster-chosen')">
+                    {% if current_poster %}Change File{% else %}Choose File{% endif %}
+                    <input type="file" name="poster_{{ code }}" accept="image/*" style="display: none;" onchange="showChosen(this, 'poster-chosen-{{ code }}')">
                 </label>
-                <span id="poster-chosen" style="font-size: 0.8rem; color: var(--text2);"></span>
+                <span id="poster-chosen-{{ code }}" style="font-size: 0.8rem; color: var(--text2);"></span>
             </div>
         </div>
+        {% endfor %}
     </div>
 
     <div class="field-group">
         <p class="field-group-label">Terms &amp; Conditions</p>
-        <div style="padding: 14px;">
-            {% if event.terms_filename %}
-            <div style="font-size: 0.8rem; color: var(--text3); margin-bottom: 8px;">Current: {{ event.terms_filename }}</div>
-            <a href="{{ url_for('static', filename='uploads/' + event.terms_filename) }}" target="_blank" class="btn btn-surface btn-sm" style="margin-bottom: 10px; display: inline-block;">View T&amp;C PDF</a>
+        {% for code, name in supported_languages %}
+        {% set current_terms = event_file(event, 'terms', code) %}
+        <div style="padding: 12px 14px; {% if not loop.last %}border-bottom: 1px solid var(--border);{% endif %}">
+            <p style="font-size: 0.75rem; color: var(--text3); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">{{ name }}</p>
+            {% if current_terms %}
+            <div style="font-size: 0.75rem; color: var(--text3); margin-bottom: 6px;">{{ current_terms }}</div>
+            <a href="{{ url_for('static', filename='uploads/' + current_terms) }}" target="_blank" class="btn btn-surface btn-sm" style="margin-bottom: 8px; display: inline-block;">View PDF</a>
             {% endif %}
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 <label class="btn btn-surface btn-sm" style="cursor: pointer; margin: 0;">
-                    {% if event.terms_filename %}Change File{% else %}Choose File{% endif %}
-                    <input type="file" name="terms" accept=".pdf" style="display: none;" onchange="showChosen(this, 'terms-chosen')">
+                    {% if current_terms %}Change File{% else %}Choose File{% endif %}
+                    <input type="file" name="terms_{{ code }}" accept=".pdf" style="display: none;" onchange="showChosen(this, 'terms-chosen-{{ code }}')">
                 </label>
-                <span id="terms-chosen" style="font-size: 0.8rem; color: var(--text2);"></span>
+                <span id="terms-chosen-{{ code }}" style="font-size: 0.8rem; color: var(--text2);"></span>
             </div>
         </div>
+        {% endfor %}
     </div>
 
     <div class="btn-row" style="margin-top: 16px;">

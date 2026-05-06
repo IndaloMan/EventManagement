@@ -87,6 +87,46 @@ def owner_or_above(f):
     return decorated
 
 
+def get_event_file(event, file_type, lang='en'):
+    """Return filename for a language-specific event file, with fallbacks.
+
+    Priority: {event_code}_{type}_{lang}.ext → English version → legacy filename.
+    """
+    upload_folder = app.config.get('UPLOAD_FOLDER', 'static/uploads')
+    exts = ['jpg', 'jpeg', 'png', 'gif', 'webp'] if file_type == 'poster' else ['pdf']
+
+    if event.event_code:
+        for try_lang in ([lang, 'en'] if lang != 'en' else ['en']):
+            for ext in exts:
+                fname = f"{event.event_code}_{file_type}_{try_lang}.{ext}"
+                if os.path.exists(os.path.join(upload_folder, fname)):
+                    return fname
+
+    # Legacy fallback for files uploaded before this convention
+    return event.poster_filename if file_type == 'poster' else event.terms_filename
+
+
+def _save_event_file(file_obj, event_code, file_type, lang):
+    """Save uploaded file using naming convention, removing stale extension variants."""
+    if not file_obj or not file_obj.filename:
+        return
+    ext = file_obj.filename.rsplit('.', 1)[-1].lower() if '.' in file_obj.filename else ''
+    if file_type == 'poster' and ext not in {'png', 'jpg', 'jpeg', 'gif', 'webp'}:
+        return
+    if file_type == 'terms' and ext != 'pdf':
+        return
+    upload_folder = app.config['UPLOAD_FOLDER']
+    # Remove existing file for this slot with any extension
+    for old_ext in (['jpg', 'jpeg', 'png', 'gif', 'webp'] if file_type == 'poster' else ['pdf']):
+        old_path = os.path.join(upload_folder, f"{event_code}_{file_type}_{lang}.{old_ext}")
+        if os.path.exists(old_path):
+            os.remove(old_path)
+    file_obj.save(os.path.join(upload_folder, f"{event_code}_{file_type}_{lang}.{ext}"))
+
+
+app.jinja_env.globals['event_file'] = get_event_file
+
+
 @app.template_filter('fmt_eur')
 def fmt_eur(value):
     if not value:
@@ -187,7 +227,7 @@ def reserve(event_id):
             flash('Name and email are required.', 'error')
             return render_template('reserve.html', event=event)
 
-        if event.terms_filename and not request.form.get('agree_terms'):
+        if get_event_file(event, 'terms', get_lang()) and not request.form.get('agree_terms'):
             flash('You must agree to the Terms and Conditions.', 'error')
             return render_template('reserve.html', event=event)
 
@@ -765,17 +805,11 @@ def admin_event_detail(event_id):
         event.dress_code = request.form.get('dress_code', '').strip()
         event.is_active = 'is_active' in request.form
 
-        poster = request.files.get('poster')
-        if poster and poster.filename and allowed_file(poster.filename):
-            filename = secure_filename(f"event_{event.id}_{poster.filename}")
-            poster.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            event.poster_filename = filename
-
-        terms = request.files.get('terms')
-        if terms and terms.filename and terms.filename.lower().endswith('.pdf'):
-            filename = secure_filename(f"terms_{event.id}_{terms.filename}")
-            terms.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            event.terms_filename = filename
+        for lang_code, _ in SUPPORTED_LANGUAGES:
+            _save_event_file(request.files.get(f'poster_{lang_code}'),
+                             event.event_code, 'poster', lang_code)
+            _save_event_file(request.files.get(f'terms_{lang_code}'),
+                             event.event_code, 'terms', lang_code)
 
         if current_user.role_exact in ('global_admin', 'owner'):
             event.managers.clear()
