@@ -93,21 +93,21 @@ class Admin(UserMixin, db.Model):
     def can_access_business(self, business):
         if self.is_global_admin:
             return True
-        if self.role == 'owner':
+        if self.role in ('owner', 'cashier'):
             return business in self.businesses
         return any(e.business_id == business.id for e in self.managed_events)
 
     def can_access_event(self, event):
         if self.is_global_admin:
             return True
-        if self.role == 'owner':
+        if self.role in ('owner', 'cashier'):
             return event.business in self.businesses
         return event in self.managed_events
 
     def get_accessible_businesses(self):
         if self.is_global_admin:
             return Business.query.filter_by(is_active=True).all()
-        if self.role == 'owner':
+        if self.role in ('owner', 'cashier'):
             return [b for b in self.businesses if b.is_active]
         business_ids = {e.business_id for e in self.managed_events}
         return Business.query.filter(Business.id.in_(business_ids)).all()
@@ -115,7 +115,7 @@ class Admin(UserMixin, db.Model):
     def get_accessible_events(self):
         if self.is_global_admin:
             return Event.query.order_by(Event.start_time.desc()).all()
-        if self.role == 'owner':
+        if self.role in ('owner', 'cashier'):
             biz_ids = [b.id for b in self.businesses]
             return Event.query.filter(Event.business_id.in_(biz_ids)).order_by(Event.start_time.desc()).all()
         return list(self.managed_events)
@@ -126,6 +126,7 @@ class Event(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     business_id = db.Column(db.Integer, db.ForeignKey('businesses.id'), nullable=False)
     gcal_event_id = db.Column(db.String(256), unique=True)
+    event_code = db.Column(db.String(6), unique=True)
     title = db.Column(db.String(200), nullable=False)
     start_time = db.Column(db.DateTime, nullable=False)
     end_time = db.Column(db.DateTime)
@@ -137,6 +138,7 @@ class Event(db.Model):
     includes = db.Column(db.String(500))
     dress_code = db.Column(db.String(200))
     poster_filename = db.Column(db.String(256))
+    terms_filename = db.Column(db.String(256))
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -170,9 +172,10 @@ class Reservation(db.Model):
     reference_code = db.Column(db.String(8), unique=True, nullable=False)
     name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(120))
-    phone = db.Column(db.String(30), nullable=False)
+    phone = db.Column(db.String(30))
     num_tickets = db.Column(db.Integer, nullable=False, default=1)
     status = db.Column(db.String(20), default='pending')
+    is_comp = db.Column(db.Boolean, default=False)
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -185,6 +188,27 @@ class Reservation(db.Model):
     @staticmethod
     def generate_reference():
         return uuid.uuid4().hex[:8].upper()
+
+
+class AppSettings(db.Model):
+    __tablename__ = 'app_settings'
+    id = db.Column(db.Integer, primary_key=True)
+    promo_display_name = db.Column(db.String(24), nullable=False, default='VIP Promotions')
+    promo_full_name = db.Column(db.String(200))
+    promo_description = db.Column(db.Text)
+    smtp_email = db.Column(db.String(120))
+    smtp_password = db.Column(db.String(256))
+    smtp_from_name = db.Column(db.String(100))
+
+
+class Maintenance(db.Model):
+    __tablename__ = 'maintenance'
+    id = db.Column(db.Integer, primary_key=True)
+    is_active = db.Column(db.Boolean, default=False)
+    message = db.Column(db.Text, default='The system is currently undergoing scheduled maintenance.')
+    start_time = db.Column(db.DateTime)
+    end_time = db.Column(db.DateTime)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class ReservationLog(db.Model):

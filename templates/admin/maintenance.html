@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Maintenance Mode — Admin{% endblock %}
+{% block content %}
+<p class="section-title">System Maintenance</p>
+
+<form method="POST" data-track-changes>
+    <div class="field-group">
+        <p class="field-group-label">Status</p>
+        <div class="field-row">
+            <label for="is_active">Display maintenance message?</label>
+            <input type="checkbox" id="is_active" name="is_active" {% if maintenance.is_active %}checked{% endif %} style="width: 20px; height: 20px;">
+        </div>
+    </div>
+
+    <div class="field-group">
+        <p class="field-group-label">Message</p>
+        <div style="padding: 14px;">
+            <textarea id="message" name="message" rows="4" style="width: 100%; font-size: 0.95rem;" placeholder="Message shown to users during maintenance">{{ maintenance.message or '' }}</textarea>
+        </div>
+    </div>
+
+    <div class="field-group">
+        <p class="field-group-label">Schedule</p>
+        <div class="field-row">
+            <label for="start_date">Start date</label>
+            <input type="date" id="start_date" name="start_date" value="{{ maintenance.start_time.strftime('%Y-%m-%d') if maintenance.start_time else '' }}">
+        </div>
+        <div class="field-row">
+            <label for="start_time_val">Start time</label>
+            <input type="time" id="start_time_val" name="start_time_val" value="{{ maintenance.start_time.strftime('%H:%M') if maintenance.start_time else '' }}">
+        </div>
+        <div class="field-row">
+            <label for="end_date">End date</label>
+            <input type="date" id="end_date" name="end_date" value="{{ maintenance.end_time.strftime('%Y-%m-%d') if maintenance.end_time else '' }}">
+        </div>
+        <div class="field-row">
+            <label for="end_time_val">End time</label>
+            <input type="time" id="end_time_val" name="end_time_val" value="{{ maintenance.end_time.strftime('%H:%M') if maintenance.end_time else '' }}">
+        </div>
+    </div>
+
+    <div class="btn-row" style="margin-top: 16px;">
+        <button type="submit" class="btn btn-success" style="flex: 1;">Save Settings</button>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-surface" style="flex: 1;">Back</a>
+    </div>
+</form>
+{% endblock %}

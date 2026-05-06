@@ -26,7 +26,7 @@
                         {{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}{% if event.end_time_text %} — {{ event.end_time_text }}{% elif event.end_time %} — {{ event.end_time.strftime('%H:%M') }}{% endif %}
                     </div>
                     {% if event.price > 0 %}
-                    <div class="event-price">&euro;{{ "%.2f"|format(event.price) }} per person</div>
+                    <div class="event-price">&euro;{{ event.price|fmt_eur }} per person</div>
                     {% endif %}
                     {% if not event.is_sold_out %}
                     <a href="{{ url_for('reserve', event_id=event.id) }}" class="btn btn-primary" style="margin-top: 12px;" target="_top">Reserve Tickets</a>

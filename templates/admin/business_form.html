@@ -7,34 +7,39 @@
     <div class="field-group">
         <p class="field-group-label">Details</p>
         <div class="field-row">
-            <label for="name">Name</label>
+            <label for="name">Name <span style="color: var(--danger);">*</span></label>
             <input type="text" id="name" name="name" value="{{ business.name if business else '' }}" required placeholder="e.g. Marina Club Gastrobar">
         </div>
         {% if not business %}
         <div class="field-row">
-            <label for="slug">Identifier</label>
+            <label for="slug">Identifier <span style="color: var(--danger);">*</span></label>
             <input type="text" id="slug" name="slug" placeholder="3 letter + 1 digit code e.g. MCG1" required maxlength="4" style="text-transform: uppercase;">
+        </div>
+        {% else %}
+        <div class="field-row">
+            <label>Identifier</label>
+            <span style="font-size: 0.9rem; font-weight: 700; color: var(--accent); letter-spacing: 1px;">{{ business.slug }}</span>
         </div>
         {% endif %}
         <div class="field-row">
             <label for="address">Address</label>
-            <input type="text" id="address" name="address" value="{{ business.address if business else '' }}" placeholder="Full address">
+            <input type="text" id="address" name="address" value="{{ business.address if business else '' }}" placeholder="Optional">
         </div>
         <div class="field-row">
             <label for="phone">Phone</label>
-            <input type="tel" id="phone" name="phone" value="{{ business.phone if business else '' }}" placeholder="+34 ...">
+            <input type="tel" id="phone" name="phone" value="{{ business.phone if business else '' }}" placeholder="Optional">
         </div>
         <div class="field-row">
             <label for="email">Email</label>
-            <input type="email" id="email" name="email" value="{{ business.email if business else '' }}">
+            <input type="email" id="email" name="email" value="{{ business.email if business else '' }}" placeholder="Optional">
         </div>
         <div class="field-row">
             <label for="website">Website</label>
-            <input type="url" id="website" name="website" value="{{ business.website if business else '' }}" placeholder="https://...">
+            <input type="url" id="website" name="website" value="{{ business.website if business else '' }}" placeholder="Optional">
         </div>
         <div class="field-row">
             <label for="description">Description</label>
-            <textarea id="description" name="description" placeholder="Brief description">{{ business.description if business else '' }}</textarea>
+            <textarea id="description" name="description" placeholder="Optional">{{ business.description if business else '' }}</textarea>
         </div>
     </div>
 

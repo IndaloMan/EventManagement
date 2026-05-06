@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Reports — VIP Promotions{% endblock %}
+{% block title %}Reports — {{ app_settings.promo_display_name }}{% endblock %}
 {% block content %}
 <p class="section-title">Event Reports</p>
 
@@ -20,6 +20,12 @@
                 <div class="stat-value" style="color: var(--accent2);">{{ data.total_paid }}</div>
                 <div class="stat-label">Paid</div>
             </div>
+            {% if data.total_comp > 0 %}
+            <div class="stat-card">
+                <div class="stat-value" style="color: var(--accent);">{{ data.total_comp }}</div>
+                <div class="stat-label">Comp</div>
+            </div>
+            {% endif %}
             <div class="stat-card">
                 <div class="stat-value" style="color: var(--warning);">{{ data.total_pending }}</div>
                 <div class="stat-label">Pending</div>
@@ -39,10 +45,10 @@
 
         {% if data.event.price > 0 %}
         <p style="font-size: 0.85rem; color: var(--text2);">
-            Revenue (paid): <span style="color: var(--accent2); font-weight: 600;">&euro;{{ "%.2f"|format(data.revenue) }}</span>
+            Revenue (paid): <span style="color: var(--accent2); font-weight: 600;">&euro;{{ data.revenue|fmt_eur }}</span>
         </p>
         <p style="font-size: 0.85rem; color: var(--text2);">
-            Potential (pending): <span style="color: var(--warning);">&euro;{{ "%.2f"|format(data.total_pending * data.event.price) }}</span>
+            Potential (pending): <span style="color: var(--warning);">&euro;{{ (data.total_pending * data.event.price)|fmt_eur }}</span>
         </p>
         {% endif %}
     </div>

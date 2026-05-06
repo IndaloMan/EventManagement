@@ -6,14 +6,14 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0d0d0d">
-    <title>{% block title %}VIP Promotions{% endblock %}</title>
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <title>{% block title %}{{ app_settings.promo_display_name }}{% endblock %}</title>
+    <link rel="manifest" href="{{ url_for('manifest_json') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <div id="app">
         <header id="header">
-            <h1>VIP Promotions</h1>
+            <h1>{{ app_settings.promo_display_name }}</h1>
             {% if current_user.is_authenticated %}
             <div style="display: flex; align-items: center; gap: 12px;">
                 <span style="font-size: 0.9rem; color: var(--text2);">{{ current_user.name }}</span>
@@ -39,9 +39,11 @@
             <li><a href="{{ url_for('admin_reports') }}">Reports</a></li>
             {% if current_user.role_exact in ('global_admin', 'owner') %}
             <li><a href="{{ url_for('admin_users') }}">Users</a></li>
+            <li><a href="{{ url_for('admin_settings') }}">Settings</a></li>
             {% endif %}
             {% if current_user.is_global_admin %}
             <li><a href="{{ url_for('admin_businesses') }}">Venues</a></li>
+            <li><a href="{{ url_for('admin_maintenance') }}">Maintenance</a></li>
             {% endif %}
             <li><a href="{{ url_for('admin_logout') }}">Sign Out</a></li>
             {% endif %}
@@ -123,6 +125,12 @@
                 </svg>
                 <span>Users</span>
             </a>
+            <a href="{{ url_for('admin_settings') }}" class="tab {% if request.endpoint == 'admin_settings' %}active{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22">
+                    <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                <span>Settings</span>
+            </a>
             {% endif %}
             {% if current_user.is_global_admin %}
             <a href="{{ url_for('admin_businesses') }}" class="tab {% if request.endpoint in ('admin_businesses', 'admin_business_new', 'admin_business_edit') %}active{% endif %}">
@@ -130,6 +138,12 @@
                     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
                 </svg>
                 <span>Venues</span>
+            </a>
+            <a href="{{ url_for('admin_maintenance') }}" class="tab {% if request.endpoint == 'admin_maintenance' %}active{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22">
+                    <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                <span>Maint</span>
             </a>
             {% endif %}
             {% endif %}

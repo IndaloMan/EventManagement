@@ -7,34 +7,59 @@
     <div class="field-group">
         <p class="field-group-label">Event Info</p>
         <div class="field-row">
+            <label>ID</label>
+            <span style="font-size: 0.9rem; font-weight: 700; color: var(--accent); letter-spacing: 1px;">{{ event.event_code or '—' }}</span>
+        </div>
+        <div class="field-row">
             <label>Business</label>
             <span style="font-size: 0.95rem;">{{ event.business.name }}</span>
         </div>
         <div class="field-row">
-            <label>Title</label>
-            <span style="font-size: 0.95rem;">{{ event.title }}</span>
+            <label for="title">Title <span style="color: var(--danger);">*</span></label>
+            <input type="text" id="title" name="title" value="{{ event.title }}" required>
         </div>
         <div class="field-row">
-            <label>Start</label>
-            <span style="font-size: 0.95rem;">{{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}</span>
+            <label for="start_date">Start date <span style="color: var(--danger);">*</span></label>
+            <input type="date" id="start_date" name="start_date" value="{{ event.start_time.strftime('%Y-%m-%d') }}" required>
         </div>
         <div class="field-row">
-            <label>End</label>
-            <span style="font-size: 0.95rem;">
-                {% if event.end_time_text %}{{ event.end_time_text }}{% elif event.end_time %}{{ event.end_time.strftime('%A %d %B %Y, %H:%M') }}{% else %}—{% endif %}
-            </span>
+            <label for="start_time_val">Start time <span style="color: var(--danger);">*</span></label>
+            <input type="time" id="start_time_val" name="start_time_val" value="{{ event.start_time.strftime('%H:%M') }}" required>
         </div>
         <div class="field-row">
-            <label>Location</label>
-            <span style="font-size: 0.95rem;">{{ event.location or '—' }}</span>
+            <label>No fixed end</label>
+            <input type="checkbox" name="no_fixed_end" id="no_fixed_end"
+                   {% if event.end_time_text %}checked{% endif %}
+                   style="width: 20px; height: 20px;" onchange="toggleEndFields()">
         </div>
+        <div id="end-fields">
+            <div class="field-row">
+                <label for="end_date">End date</label>
+                <input type="date" id="end_date" name="end_date"
+                       value="{{ event.end_time.strftime('%Y-%m-%d') if event.end_time else '' }}">
+            </div>
+            <div class="field-row">
+                <label for="end_time_val">End time</label>
+                <input type="time" id="end_time_val" name="end_time_val"
+                       value="{{ event.end_time.strftime('%H:%M') if event.end_time else '' }}">
+            </div>
+        </div>
+        <div class="field-row">
+            <label for="location">Location</label>
+            <input type="text" id="location" name="location" value="{{ event.location or '' }}" placeholder="Optional">
+        </div>
+        {% if event.gcal_event_id %}
+        <div style="padding: 8px 14px;">
+            <p style="font-size: 0.75rem; color: var(--warning);">&#9888; GCal event — title, dates and location will be overwritten on next calendar sync.</p>
+        </div>
+        {% endif %}
     </div>
 
     <div class="field-group">
         <p class="field-group-label">Ticket Settings</p>
         <div class="field-row">
             <label for="price">Price (&euro;)</label>
-            <input type="number" id="price" name="price" step="0.01" min="0" value="{{ event.price or 0 }}">
+            <input type="number" id="price" name="price" step="0.01" min="0" value="{{ event.price|fmt_eur if event.price else 0 }}">
         </div>
         <div class="field-row">
             <label for="max_capacity">Capacity</label>
@@ -48,9 +73,9 @@
             <label for="dress_code">Dress code</label>
             <input type="text" id="dress_code" name="dress_code" value="{{ event.dress_code or '' }}" placeholder="e.g. Dress to Impress">
         </div>
-        <div class="field-row">
+        <div class="field-row" id="end-text-row" {% if not event.end_time_text %}style="display:none"{% endif %}>
             <label for="end_time_text">End display</label>
-            <input type="text" id="end_time_text" name="end_time_text" value="{{ event.end_time_text or '' }}" placeholder="e.g. Til late (blank = show actual time)">
+            <input type="text" id="end_time_text" name="end_time_text" value="{{ event.end_time_text or '' }}" placeholder="e.g. Til late">
         </div>
         <div class="field-row">
             <label>Active</label>
@@ -63,7 +88,7 @@
         <p class="field-group-label">Event Managers</p>
         {% for mgr in all_managers %}
         <div class="field-row">
-            <label>{{ mgr.name }}</label>
+            <span style="flex: 1; font-size: 0.95rem;">{{ mgr.name }}</span>
             <input type="checkbox" name="manager_ids" value="{{ mgr.id }}"
                    {% if mgr in event.managers %}checked{% endif %}
                    style="width: 20px; height: 20px;">
@@ -81,9 +106,33 @@
         <p class="field-group-label">Event Poster</p>
         <div style="padding: 14px;">
             {% if event.poster_filename %}
-            <img src="{{ url_for('static', filename='uploads/' + event.poster_filename) }}" alt="Poster" class="event-poster">
+            <img src="{{ url_for('static', filename='uploads/' + event.poster_filename) }}" alt="Poster" class="event-poster" style="margin-bottom: 10px;">
+            <div style="font-size: 0.8rem; color: var(--text3); margin-bottom: 8px;">Current: {{ event.poster_filename }}</div>
             {% endif %}
-            <input type="file" name="poster" accept="image/*" style="font-size: 0.85rem; color: var(--text2); margin-top: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <label class="btn btn-surface btn-sm" style="cursor: pointer; margin: 0;">
+                    {% if event.poster_filename %}Change File{% else %}Choose File{% endif %}
+                    <input type="file" name="poster" accept="image/*" style="display: none;" onchange="showChosen(this, 'poster-chosen')">
+                </label>
+                <span id="poster-chosen" style="font-size: 0.8rem; color: var(--text2);"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="field-group">
+        <p class="field-group-label">Terms &amp; Conditions</p>
+        <div style="padding: 14px;">
+            {% if event.terms_filename %}
+            <div style="font-size: 0.8rem; color: var(--text3); margin-bottom: 8px;">Current: {{ event.terms_filename }}</div>
+            <a href="{{ url_for('static', filename='uploads/' + event.terms_filename) }}" target="_blank" class="btn btn-surface btn-sm" style="margin-bottom: 10px; display: inline-block;">View T&amp;C PDF</a>
+            {% endif %}
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <label class="btn btn-surface btn-sm" style="cursor: pointer; margin: 0;">
+                    {% if event.terms_filename %}Change File{% else %}Choose File{% endif %}
+                    <input type="file" name="terms" accept=".pdf" style="display: none;" onchange="showChosen(this, 'terms-chosen')">
+                </label>
+                <span id="terms-chosen" style="font-size: 0.8rem; color: var(--text2);"></span>
+            </div>
         </div>
     </div>
 
@@ -115,7 +164,7 @@
         <tbody>
             {% for r in reservations %}
             <tr>
-                <td style="font-weight: 600; color: var(--accent);">{{ r.reference_code }}</td>
+                <td><a href="{{ url_for('admin_reservation_detail', res_id=r.id) }}" style="font-weight: 600; color: var(--accent); text-decoration: none;">{{ r.reference_code }}</a></td>
                 <td>
                     {{ r.name }}
                     {% if r.phone %}<br><span style="font-size: 0.75rem; color: var(--text3);">{{ r.phone }}</span>{% endif %}
@@ -133,7 +182,7 @@
                     <a href="{{ url_for('admin_print_ticket', res_id=r.id) }}" target="_blank" class="btn btn-sm" style="background: var(--accent); padding: 5px 10px;">Ticket</a>
                     {% endif %}
                     {% if r.status != 'cancelled' %}
-                    <form method="POST" action="{{ url_for('admin_update_reservation', res_id=r.id) }}" style="display: inline;">
+                    <form method="POST" action="{{ url_for('admin_update_reservation', res_id=r.id) }}" style="display: inline;" onsubmit="return confirm('Do you really want to cancel this reservation?');">
                         <input type="hidden" name="status" value="cancelled">
                         <button type="submit" class="btn btn-sm" style="background: var(--danger); padding: 5px 10px;">Cancel</button>
                     </form>
@@ -150,4 +199,17 @@
 {% else %}
 <p style="color: var(--text3); font-size: 0.85rem;">No reservations yet.</p>
 {% endif %}
+
+<script>
+function showChosen(input, spanId) {
+    var span = document.getElementById(spanId);
+    if (span) span.textContent = input.files.length ? input.files[0].name : '';
+}
+function toggleEndFields() {
+    var noFixed = document.getElementById('no_fixed_end').checked;
+    document.getElementById('end-fields').style.display = noFixed ? 'none' : 'block';
+    document.getElementById('end-text-row').style.display = noFixed ? 'flex' : 'none';
+}
+toggleEndFields();
+</script>
 {% endblock %}

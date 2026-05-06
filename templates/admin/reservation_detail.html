@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Reservation {{ reservation.reference_code }} — Admin{% endblock %}
+{% block content %}
+<p class="section-title">Reservation Details</p>
+
+<div class="field-group">
+    <p class="field-group-label">Reference</p>
+    <div class="field-row">
+        <label>Code</label>
+        <span style="font-size: 1.1rem; font-weight: 700; color: var(--accent); letter-spacing: 1px;">{{ reservation.reference_code }}</span>
+    </div>
+    <div class="field-row">
+        <label>Status</label>
+        <span class="badge badge-{{ reservation.status }}">{{ reservation.status }}</span>
+    </div>
+</div>
+
+<div class="field-group">
+    <p class="field-group-label">Customer</p>
+    <div class="field-row">
+        <label>Name</label>
+        <span style="font-size: 0.95rem;">{{ reservation.name }}</span>
+    </div>
+    <div class="field-row">
+        <label>Email</label>
+        <span style="font-size: 0.95rem;">{{ reservation.email or '—' }}</span>
+    </div>
+    <div class="field-row">
+        <label>Phone</label>
+        <span style="font-size: 0.95rem;">{{ reservation.phone }}</span>
+    </div>
+    <div class="field-row">
+        <label>Tickets</label>
+        <span style="font-size: 0.95rem;">{{ reservation.num_tickets }}</span>
+    </div>
+    {% if event.price > 0 %}
+    <div class="field-row">
+        <label>Total</label>
+        <span style="font-size: 0.95rem; font-weight: 600; color: var(--accent2);">&euro;{{ (event.price * reservation.num_tickets)|fmt_eur }}</span>
+    </div>
+    {% endif %}
+</div>
+
+<div class="field-group">
+    <p class="field-group-label">Event</p>
+    <div class="field-row">
+        <label>Title</label>
+        <span style="font-size: 0.95rem;">{{ event.title }}</span>
+    </div>
+    <div class="field-row">
+        <label>Venue</label>
+        <span style="font-size: 0.95rem;">{{ event.business.name }}</span>
+    </div>
+    <div class="field-row">
+        <label>Date</label>
+        <span style="font-size: 0.95rem;">{{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}</span>
+    </div>
+</div>
+
+{% if reservation.status == 'pending' %}
+<div class="btn-row" style="margin-top: 16px;">
+    <form method="POST" action="{{ url_for('admin_update_reservation', res_id=reservation.id) }}" style="flex: 1;">
+        <input type="hidden" name="status" value="paid">
+        <button type="submit" class="btn btn-success" style="width: 100%;">Mark as Paid</button>
+    </form>
+</div>
+{% endif %}
+
+{% if reservation.status == 'paid' %}
+<div style="margin-top: 16px;">
+    <a href="{{ url_for('admin_print_ticket', res_id=reservation.id) }}" target="_blank" class="btn btn-primary" style="width: 100%;">Print Ticket</a>
+</div>
+{% endif %}
+
+{% if reservation.status != 'cancelled' %}
+<div style="margin-top: 16px; border: 1px solid var(--danger); border-radius: 12px; padding: 14px;">
+    <form method="POST" action="{{ url_for('admin_update_reservation', res_id=reservation.id) }}" id="cancel-form">
+        <input type="hidden" name="status" value="cancelled">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+            <input type="checkbox" id="confirm-cancel" style="width: 20px; height: 20px; flex-shrink: 0;">
+            <label for="confirm-cancel" style="font-size: 0.85rem; color: var(--danger);">Do you really want to cancel this reservation?</label>
+        </div>
+        <button type="submit" class="btn" id="cancel-btn" style="width: 100%; background: var(--danger); opacity: 0.45;" disabled>Cancel Reservation</button>
+    </form>
+</div>
+{% endif %}
+
+<p class="section-title" style="margin-top: 24px;">Audit Trail</p>
+
+{% if logs %}
+<div class="field-group" style="overflow-x: auto;">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>Action</th>
+                <th>By</th>
+                <th>Notes</th>
+                <th>Date / Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs | reverse %}
+            <tr>
+                <td><span class="badge badge-{{ log.action }}">{{ log.action }}</span></td>
+                <td style="font-size: 0.8rem;">{{ log.admin.name if log.admin else '—' }}</td>
+                <td style="font-size: 0.8rem; color: var(--text2);">{{ log.notes or '' }}</td>
+                <td style="font-size: 0.8rem; white-space: nowrap;">{{ log.created_at.strftime('%a %d %b %Y, %H:%M:%S') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p style="color: var(--text3); font-size: 0.85rem;">No audit trail entries.</p>
+{% endif %}
+
+<div style="margin-top: 16px;">
+    <a href="{{ url_for('admin_reservations') }}" class="btn btn-surface" style="width: 100%;">Back to Reservations</a>
+</div>
+
+<script>
+document.getElementById('confirm-cancel').addEventListener('change', function() {
+    var btn = document.getElementById('cancel-btn');
+    btn.disabled = !this.checked;
+    btn.style.opacity = this.checked ? '1' : '0.45';
+});
+</script>
+{% endblock %}

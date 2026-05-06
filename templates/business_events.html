@@ -53,7 +53,7 @@
         {% endif %}
 
         {% if event.price > 0 %}
-        <div class="event-price">&euro;{{ "%.2f"|format(event.price) }} per person</div>
+        <div class="event-price">&euro;{{ event.price|fmt_eur }} per person</div>
         {% else %}
         <div class="event-price">Free entry</div>
         {% endif %}

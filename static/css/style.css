@@ -192,6 +192,8 @@ body {
     transition: opacity 0.2s;
     text-decoration: none;
     color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .btn:hover { opacity: 0.85; }
@@ -200,7 +202,7 @@ body {
 .btn-primary { background: var(--accent); width: 100%; }
 .btn-success { background: var(--accent2); width: 100%; }
 .btn-danger { background: var(--danger); }
-.btn-surface { background: var(--surface2); color: var(--text2); }
+.btn-surface { background: #48484a; color: var(--text); }
 
 .btn-sm {
     border-radius: 8px;
@@ -227,7 +229,7 @@ body {
     font-size: 0.7rem;
     font-weight: 600;
     text-transform: uppercase;
-    color: var(--text3);
+    color: var(--text);
     letter-spacing: 0.8px;
     padding: 16px 14px 8px;
 }
@@ -244,8 +246,11 @@ body {
 .field-row label {
     width: 90px;
     flex-shrink: 0;
-    font-size: 0.85rem;
-    color: var(--text2);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .field-row input,
@@ -378,7 +383,7 @@ body {
     font-size: 0.7rem;
     font-weight: 600;
     text-transform: uppercase;
-    color: var(--text3);
+    color: var(--text);
     letter-spacing: 0.8px;
     margin: 20px 0 10px;
 }
@@ -468,14 +473,16 @@ body {
         flex-direction: column;
         position: absolute;
         top: 56px;
-        left: 0;
         right: 0;
+        width: max-content;
+        min-width: 160px;
         background: var(--surface);
         padding: 0.25rem 0 0.75rem;
         z-index: 1000;
         gap: 0;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         list-style: none;
+        border-radius: 0 0 0 10px;
     }
 
     .nav-links.open { display: flex; }
@@ -486,10 +493,14 @@ body {
 
     .nav-links a {
         display: block;
-        padding: 0.75rem 1.5rem;
-        font-size: 1rem;
-        color: var(--text2);
+        padding: 0.75rem 1.75rem;
+        font-size: 0.9rem;
+        color: var(--text);
         text-decoration: none;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+        white-space: nowrap;
     }
 
     .nav-links a:hover {

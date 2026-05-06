@@ -7,15 +7,15 @@ import uuid
 from functools import wraps
 from datetime import datetime, timedelta
 from flask import (Flask, render_template, request, redirect, url_for,
-                   flash, send_from_directory, abort)
+                   flash, send_from_directory, abort, jsonify, Response)
 from flask_login import (LoginManager, login_user, logout_user,
                          login_required, current_user)
 from werkzeug.utils import secure_filename
 from config import Config
-from models import db, Admin, Business, Event, Reservation, ReservationLog, event_managers
+from models import db, Admin, Business, Event, Reservation, ReservationLog, Maintenance, AppSettings, event_managers
 from calendar_sync import fetch_upcoming_events
 from qr_generator import generate_event_qr, generate_reference_qr_base64
-from email_sender import send_confirmation_email, send_password_reset_email
+from email_sender import send_confirmation_email, send_cancellation_email, send_password_reset_email
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -24,7 +24,26 @@ db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'admin_login'
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'}
+
+PUBLIC_ROUTES = ('index', 'business_events', 'reserve', 'reservation_manage',
+                 'embed_event', 'embed_business', 'static', 'manifest_json')
+
+
+@app.context_processor
+def inject_app_settings():
+    settings = AppSettings.query.first()
+    if not settings:
+        settings = AppSettings()
+    return {'app_settings': settings}
+
+
+@app.before_request
+def check_maintenance():
+    if request.endpoint and request.endpoint in PUBLIC_ROUTES:
+        maint = Maintenance.query.first()
+        if maint and maint.is_active:
+            return render_template('maintenance.html', maintenance=maint), 503
 
 
 @login_manager.user_loader
@@ -56,6 +75,21 @@ def owner_or_above(f):
     return decorated
 
 
+@app.template_filter('fmt_eur')
+def fmt_eur(value):
+    if not value:
+        return '0'
+    return '{:g}'.format(float(value))
+
+
+def generate_event_code():
+    """Generate a unique 6-character uppercase alphanumeric event code."""
+    while True:
+        code = uuid.uuid4().hex[:6].upper()
+        if not Event.query.filter_by(event_code=code).first():
+            return code
+
+
 def log_reservation(reservation_id, action, admin_id=None, notes=None):
     log = ReservationLog(
         reservation_id=reservation_id,
@@ -65,6 +99,30 @@ def log_reservation(reservation_id, action, admin_id=None, notes=None):
     )
     db.session.add(log)
     db.session.flush()
+
+
+# ---------------------------------------------------------------------------
+# Dynamic manifest
+# ---------------------------------------------------------------------------
+
+@app.route('/manifest.json')
+def manifest_json():
+    settings = AppSettings.query.first()
+    name = settings.promo_display_name if settings else 'VIP Promotions'
+    import json
+    data = {
+        "name": name,
+        "short_name": name,
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#0d0d0d",
+        "theme_color": "#0d0d0d",
+        "icons": [
+            {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png"}
+        ]
+    }
+    return Response(json.dumps(data), mimetype='application/manifest+json')
 
 
 # ---------------------------------------------------------------------------
@@ -104,8 +162,12 @@ def reserve(event_id):
         phone = request.form.get('phone', '').strip()
         num_tickets = int(request.form.get('num_tickets', 1))
 
-        if not name or not phone or not email:
-            flash('Name, email and phone number are required.', 'error')
+        if not name or not email:
+            flash('Name and email are required.', 'error')
+            return render_template('reserve.html', event=event)
+
+        if event.terms_filename and not request.form.get('agree_terms'):
+            flash('You must agree to the Terms and Conditions.', 'error')
             return render_template('reserve.html', event=event)
 
         if num_tickets < 1:
@@ -132,7 +194,11 @@ def reserve(event_id):
         log_reservation(reservation.id, 'reserved',
                         notes=f'{reservation.name}, {reservation.num_tickets} ticket(s)')
 
-        email_sent = send_confirmation_email(app.config, reservation, event)
+        ref_qr_base64 = generate_reference_qr_base64(
+            f"{app.config['APP_URL']}/admin/scan/{reservation.reference_code}")
+        settings = AppSettings.query.first()
+        email_sent = send_confirmation_email(app.config, reservation, event, ref_qr_base64,
+                                             settings=settings)
         if email_sent:
             log_reservation(reservation.id, 'email_sent',
                             notes=f'Confirmation sent to {reservation.email}')
@@ -143,6 +209,59 @@ def reserve(event_id):
                                event=event, reservation=reservation)
 
     return render_template('reserve.html', event=event)
+
+
+@app.route('/reservation/<reference_code>', methods=['GET', 'POST'])
+def reservation_manage(reference_code):
+    """Public page for customers to view/modify/cancel their reservation."""
+    reservation = Reservation.query.filter_by(
+        reference_code=reference_code.upper()).first_or_404()
+    event = reservation.event
+
+    if request.method == 'POST' and reservation.status == 'pending':
+        action = request.form.get('action')
+
+        if action == 'update':
+            new_qty = int(request.form.get('num_tickets', reservation.num_tickets))
+            if new_qty < 1:
+                flash('You must have at least 1 ticket.', 'error')
+                return render_template('reservation_manage.html',
+                                       reservation=reservation, event=event)
+            if event.max_capacity > 0:
+                other_reserved = event.tickets_reserved - reservation.num_tickets
+                available = event.max_capacity - other_reserved
+                if new_qty > available:
+                    flash(f'Only {available} tickets available.', 'error')
+                    return render_template('reservation_manage.html',
+                                           reservation=reservation, event=event)
+            old_qty = reservation.num_tickets
+            reservation.num_tickets = new_qty
+            log_reservation(reservation.id, 'modified',
+                            notes=f'Tickets changed from {old_qty} to {new_qty}')
+            ref_qr_base64 = generate_reference_qr_base64(
+                f"{app.config['APP_URL']}/admin/scan/{reservation.reference_code}")
+            _settings = AppSettings.query.first()
+            send_confirmation_email(app.config, reservation, event, ref_qr_base64,
+                                    settings=_settings)
+            log_reservation(reservation.id, 'email_sent',
+                            notes=f'Updated confirmation sent to {reservation.email}')
+            db.session.commit()
+            flash('Reservation updated. A new confirmation email has been sent.', 'success')
+
+        elif action == 'cancel':
+            reservation.status = 'cancelled'
+            log_reservation(reservation.id, 'cancelled',
+                            notes='Cancelled by customer')
+            send_cancellation_email(app.config, reservation, event)
+            log_reservation(reservation.id, 'email_sent',
+                            notes=f'Cancellation sent to {reservation.email}')
+            db.session.commit()
+            flash('Reservation cancelled. A confirmation email has been sent.', 'success')
+
+        return redirect(url_for('reservation_manage', reference_code=reference_code))
+
+    return render_template('reservation_manage.html',
+                           reservation=reservation, event=event)
 
 
 @app.route('/embed/<int:event_id>')
@@ -393,7 +512,7 @@ def admin_user_new():
         )
         admin.set_password(password)
 
-        if role == 'owner':
+        if role in ('owner', 'cashier'):
             biz_ids = request.form.getlist('business_ids')
             for bid in biz_ids:
                 biz = db.session.get(Business, int(bid))
@@ -427,12 +546,12 @@ def admin_user_edit(user_id):
 
         if current_user.is_global_admin:
             user.role = request.form.get('role', user.role)
-            if user.role == 'owner':
-                user.businesses.clear()
-                for bid in request.form.getlist('business_ids'):
-                    biz = db.session.get(Business, int(bid))
-                    if biz:
-                        user.businesses.append(biz)
+        if user.role in ('owner', 'cashier'):
+            user.businesses.clear()
+            for bid in request.form.getlist('business_ids'):
+                biz = db.session.get(Business, int(bid))
+                if biz:
+                    user.businesses.append(biz)
 
         new_password = request.form.get('password', '').strip()
         if new_password:
@@ -494,6 +613,7 @@ def admin_event_new():
 
         event = Event(
             business_id=business_id,
+            event_code=generate_event_code(),
             title=title,
             start_time=start_time,
             end_time=end_time,
@@ -513,6 +633,13 @@ def admin_event_new():
             filename = secure_filename(f"event_{event.id}_{poster.filename}")
             poster.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             event.poster_filename = filename
+
+        terms = request.files.get('terms')
+        if terms and terms.filename and terms.filename.lower().endswith('.pdf'):
+            db.session.flush()
+            filename = secure_filename(f"terms_{event.id}_{terms.filename}")
+            terms.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            event.terms_filename = filename
 
         db.session.add(event)
         db.session.commit()
@@ -549,6 +676,7 @@ def admin_sync_events():
                     event = Event(
                         business_id=business.id,
                         gcal_event_id=ge['gcal_event_id'],
+                        event_code=generate_event_code(),
                         title=ge['title'],
                         start_time=ge['start_time'],
                         end_time=ge['end_time'],
@@ -581,11 +709,39 @@ def admin_event_detail(event_id):
         if current_user.role_exact == 'event_manager' and event not in current_user.managed_events:
             abort(403)
 
-        event.price = float(request.form.get('price', 0))
-        event.max_capacity = int(request.form.get('max_capacity', 0))
+        title = request.form.get('title', '').strip()
+        if title:
+            event.title = title
+        event.location = request.form.get('location', '').strip()
+        event.description = request.form.get('description', '').strip()
+
+        start_date = request.form.get('start_date', '')
+        start_time_val = request.form.get('start_time_val', '')
+        if start_date and start_time_val:
+            try:
+                event.start_time = datetime.strptime(f'{start_date}T{start_time_val}', '%Y-%m-%dT%H:%M')
+            except ValueError:
+                flash('Invalid start date/time.', 'error')
+                return redirect(url_for('admin_event_detail', event_id=event.id))
+
+        no_fixed_end = 'no_fixed_end' in request.form
+        if no_fixed_end:
+            event.end_time = None
+            event.end_time_text = request.form.get('end_time_text', 'Til late').strip() or 'Til late'
+        else:
+            end_date = request.form.get('end_date', '')
+            end_time_val = request.form.get('end_time_val', '')
+            if end_date and end_time_val:
+                try:
+                    event.end_time = datetime.strptime(f'{end_date}T{end_time_val}', '%Y-%m-%dT%H:%M')
+                except ValueError:
+                    pass
+            event.end_time_text = request.form.get('end_time_text', '').strip() or None
+
+        event.price = float(request.form.get('price', 0) or 0)
+        event.max_capacity = int(request.form.get('max_capacity', 0) or 0)
         event.includes = request.form.get('includes', '').strip()
         event.dress_code = request.form.get('dress_code', '').strip()
-        event.end_time_text = request.form.get('end_time_text', '').strip() or None
         event.is_active = 'is_active' in request.form
 
         poster = request.files.get('poster')
@@ -594,11 +750,17 @@ def admin_event_detail(event_id):
             poster.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             event.poster_filename = filename
 
+        terms = request.files.get('terms')
+        if terms and terms.filename and terms.filename.lower().endswith('.pdf'):
+            filename = secure_filename(f"terms_{event.id}_{terms.filename}")
+            terms.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            event.terms_filename = filename
+
         if current_user.role_exact in ('global_admin', 'owner'):
             event.managers.clear()
             for mid in request.form.getlist('manager_ids'):
                 mgr = db.session.get(Admin, int(mid))
-                if mgr and mgr.role in ('event_manager', 'event_security', 'cashier'):
+                if mgr and mgr.role in ('event_manager', 'event_security'):
                     event.managers.append(mgr)
 
         db.session.commit()
@@ -608,7 +770,7 @@ def admin_event_detail(event_id):
     reservations = Reservation.query.filter_by(event_id=event.id).order_by(
         Reservation.created_at.desc()).all()
     all_managers = Admin.query.filter(
-        Admin.role.in_(['event_manager', 'event_security', 'cashier']),
+        Admin.role.in_(['event_manager', 'event_security']),
         Admin.is_active_admin == True).all()
     return render_template('admin/event_detail.html',
                            event=event, reservations=reservations,
@@ -634,6 +796,22 @@ def admin_generate_qr(event_id):
 # ---------------------------------------------------------------------------
 # Admin — reservations
 # ---------------------------------------------------------------------------
+
+@app.route('/admin/reservations/<int:res_id>')
+@login_required
+def admin_reservation_detail(res_id):
+    reservation = db.session.get(Reservation, res_id)
+    if not reservation:
+        abort(404)
+    if not current_user.can_access_event(reservation.event):
+        abort(403)
+    logs = ReservationLog.query.filter_by(reservation_id=reservation.id).order_by(
+        ReservationLog.created_at).all()
+    return render_template('admin/reservation_detail.html',
+                           reservation=reservation,
+                           event=reservation.event,
+                           logs=logs)
+
 
 @app.route('/admin/reservations')
 @login_required
@@ -760,6 +938,57 @@ def admin_scan_admit(reference_code):
     return redirect(url_for('admin_scan_lookup', reference_code=reference_code))
 
 
+@app.route('/admin/scan/<reference_code>/pay', methods=['POST'])
+@login_required
+def admin_scan_pay(reference_code):
+    reservation = Reservation.query.filter_by(reference_code=reference_code.upper()).first_or_404()
+    if not current_user.can_access_event(reservation.event):
+        abort(403)
+    if reservation.status == 'pending':
+        reservation.status = 'paid'
+        reservation.paid_at = datetime.utcnow()
+        reservation.paid_to_admin_id = current_user.id
+        log_reservation(reservation.id, 'paid', admin_id=current_user.id)
+        db.session.commit()
+        flash(f'{reservation.reference_code} marked as paid.', 'success')
+    return redirect(url_for('admin_scan_lookup', reference_code=reference_code))
+
+
+@app.route('/admin/scan/<reference_code>/cancel', methods=['POST'])
+@login_required
+def admin_scan_cancel(reference_code):
+    reservation = Reservation.query.filter_by(reference_code=reference_code.upper()).first_or_404()
+    if not current_user.can_access_event(reservation.event):
+        abort(403)
+    if reservation.status == 'pending':
+        reservation.status = 'cancelled'
+        log_reservation(reservation.id, 'cancelled', admin_id=current_user.id,
+                        notes='Cancelled at scan')
+        db.session.commit()
+        flash(f'{reservation.reference_code} cancelled.', 'success')
+    return redirect(url_for('admin_scan_lookup', reference_code=reference_code))
+
+
+@app.route('/admin/scan/<reference_code>/comp', methods=['POST'])
+@login_required
+def admin_scan_comp(reference_code):
+    if not current_user.is_event_manager:
+        abort(403)
+    reservation = Reservation.query.filter_by(reference_code=reference_code.upper()).first_or_404()
+    if not current_user.can_access_event(reservation.event):
+        abort(403)
+    if reservation.status == 'pending':
+        reservation.status = 'paid'
+        reservation.is_comp = True
+        reservation.paid_at = datetime.utcnow()
+        reservation.paid_to_admin_id = current_user.id
+        log_reservation(reservation.id, 'comp', admin_id=current_user.id,
+                        notes='Complimentary — 0€')
+        db.session.commit()
+        flash(f'{reservation.reference_code} marked as complimentary.', 'success')
+    return redirect(url_for('admin_scan_lookup', reference_code=reference_code))
+
+
 # ---------------------------------------------------------------------------
 # Admin — reports
 # ---------------------------------------------------------------------------
@@ -773,18 +1002,96 @@ def admin_reports():
         reservations = Reservation.query.filter_by(event_id=event.id).all()
         total_reserved = sum(r.num_tickets for r in reservations if r.status != 'cancelled')
         total_paid = sum(r.num_tickets for r in reservations if r.status == 'paid')
+        total_comp = sum(r.num_tickets for r in reservations if r.status == 'paid' and r.is_comp)
         total_pending = sum(r.num_tickets for r in reservations if r.status == 'pending')
         total_cancelled = sum(r.num_tickets for r in reservations if r.status == 'cancelled')
-        revenue = total_paid * event.price
+        revenue = sum(r.num_tickets * event.price for r in reservations
+                      if r.status == 'paid' and not r.is_comp)
         report_data.append({
             'event': event,
             'total_reserved': total_reserved,
             'total_paid': total_paid,
+            'total_comp': total_comp,
             'total_pending': total_pending,
             'total_cancelled': total_cancelled,
             'revenue': revenue,
         })
     return render_template('admin/reports.html', report_data=report_data)
+
+
+# ---------------------------------------------------------------------------
+# Admin — maintenance mode (global admin only)
+# ---------------------------------------------------------------------------
+
+@app.route('/admin/maintenance', methods=['GET', 'POST'])
+@global_admin_required
+def admin_maintenance():
+    maint = Maintenance.query.first()
+    if not maint:
+        maint = Maintenance()
+        db.session.add(maint)
+        db.session.commit()
+
+    if request.method == 'POST':
+        maint.is_active = 'is_active' in request.form
+        maint.message = request.form.get('message', '').strip()
+        start_date = request.form.get('start_date', '')
+        start_time = request.form.get('start_time_val', '')
+        end_date = request.form.get('end_date', '')
+        end_time = request.form.get('end_time_val', '')
+        if start_date and start_time:
+            maint.start_time = datetime.strptime(f'{start_date}T{start_time}', '%Y-%m-%dT%H:%M')
+        if end_date and end_time:
+            maint.end_time = datetime.strptime(f'{end_date}T{end_time}', '%Y-%m-%dT%H:%M')
+        db.session.commit()
+        flash('Maintenance settings updated.', 'success')
+        return redirect(url_for('admin_maintenance'))
+
+    return render_template('admin/maintenance.html', maintenance=maint)
+
+
+# ---------------------------------------------------------------------------
+# Admin — app settings (owner+)
+# ---------------------------------------------------------------------------
+
+@app.route('/admin/settings', methods=['GET', 'POST'])
+@owner_or_above
+def admin_settings():
+    settings = AppSettings.query.first()
+    if not settings:
+        settings = AppSettings()
+        db.session.add(settings)
+        db.session.commit()
+
+    if request.method == 'POST':
+        display_name = request.form.get('promo_display_name', '').strip()[:24]
+        if not display_name:
+            flash('Display name is required.', 'error')
+            return render_template('admin/settings.html', settings=settings)
+        settings.promo_display_name = display_name
+        settings.promo_full_name = request.form.get('promo_full_name', '').strip()
+        settings.promo_description = request.form.get('promo_description', '').strip()
+
+        smtp_email = request.form.get('smtp_email', '').strip()
+        smtp_password = request.form.get('smtp_password', '').strip()
+        smtp_from_name = request.form.get('smtp_from_name', '').strip()
+        if smtp_email:
+            settings.smtp_email = smtp_email
+        if smtp_password:
+            settings.smtp_password = smtp_password
+        settings.smtp_from_name = smtp_from_name
+
+        db.session.commit()
+
+        if settings.smtp_email:
+            app.config['SMTP_EMAIL'] = settings.smtp_email
+        if settings.smtp_password:
+            app.config['SMTP_PASSWORD'] = settings.smtp_password
+
+        flash('Settings saved.', 'success')
+        return redirect(url_for('admin_dashboard'))
+
+    return render_template('admin/settings.html', settings=settings)
 
 
 # ---------------------------------------------------------------------------
@@ -801,12 +1108,38 @@ def init_db():
                 conn.execute(db.text("ALTER TABLE admins ADD COLUMN reset_token VARCHAR(64)"))
                 conn.execute(db.text("ALTER TABLE admins ADD COLUMN reset_token_expires DATETIME"))
                 conn.commit()
+            event_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(events)"))]
+            if 'terms_filename' not in event_cols:
+                conn.execute(db.text("ALTER TABLE events ADD COLUMN terms_filename VARCHAR(256)"))
+                conn.commit()
+            res_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(reservations)"))]
+            if 'is_comp' not in res_cols:
+                conn.execute(db.text("ALTER TABLE reservations ADD COLUMN is_comp BOOLEAN DEFAULT 0"))
+                conn.commit()
+            ev_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(events)"))]
+            if 'event_code' not in ev_cols:
+                conn.execute(db.text("ALTER TABLE events ADD COLUMN event_code VARCHAR(6)"))
+                conn.commit()
+        for ev in Event.query.filter(Event.event_code == None).all():
+            ev.event_code = generate_event_code()
+        db.session.commit()
         if not Admin.query.first():
             admin = Admin(username='admin', name='Global Admin', role='global_admin')
             admin.set_password('changeme')
             db.session.add(admin)
             db.session.commit()
             print("Default admin created — username: admin, password: changeme")
+        if not Maintenance.query.first():
+            db.session.add(Maintenance())
+            db.session.commit()
+        if not AppSettings.query.first():
+            db.session.add(AppSettings(promo_display_name='VIP Promotions'))
+            db.session.commit()
+        settings = AppSettings.query.first()
+        if settings and settings.smtp_email:
+            app.config['SMTP_EMAIL'] = settings.smtp_email
+        if settings and settings.smtp_password:
+            app.config['SMTP_PASSWORD'] = settings.smtp_password
 
 
 if __name__ == '__main__':

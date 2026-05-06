@@ -50,11 +50,11 @@
         </div>
     </div>
 
-    <div id="business-select" class="field-group" style="{% if not user or user.role_exact != 'owner' %}display: none;{% endif %}">
+    <div id="business-select" class="field-group" style="{% if not user or user.role_exact not in ('owner', 'cashier') %}display: none;{% endif %}">
         <p class="field-group-label">Assigned Businesses</p>
         {% for biz in businesses %}
         <div class="field-row">
-            <label>{{ biz.name }}</label>
+            <span style="flex: 1; font-size: 0.95rem;">{{ biz.name }}</span>
             <input type="checkbox" name="business_ids" value="{{ biz.id }}"
                    {% if user and biz in user.businesses %}checked{% endif %}
                    style="width: 20px; height: 20px;">
@@ -80,7 +80,7 @@
 
 <script>
 function toggleBusinesses(role) {
-    document.getElementById('business-select').style.display = role === 'owner' ? 'block' : 'none';
+    document.getElementById('business-select').style.display = (role === 'owner' || role === 'cashier') ? 'block' : 'none';
 }
 document.getElementById('toggle-pw').addEventListener('click', function() {
     var pw = document.getElementById('password');

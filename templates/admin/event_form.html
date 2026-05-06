@@ -7,7 +7,7 @@
     <div class="field-group">
         <p class="field-group-label">Details</p>
         <div class="field-row">
-            <label for="business_id">Business</label>
+            <label for="business_id">Business <span style="color: var(--danger);">*</span></label>
             <select id="business_id" name="business_id" required>
                 <option value="">— Select —</option>
                 {% for biz in businesses %}
@@ -16,18 +16,18 @@
             </select>
         </div>
         <div class="field-row">
-            <label for="title">Title</label>
+            <label for="title">Title <span style="color: var(--danger);">*</span></label>
             <input type="text" id="title" name="title" required placeholder="e.g. Latin Night">
         </div>
         <div class="field-row">
-            <label for="start_date">Start date</label>
+            <label for="start_date">Start date <span style="color: var(--danger);">*</span></label>
             <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
                 <input type="date" id="start_date" name="start_date" required style="flex: 1;">
                 <span id="start_day" style="font-size: 0.8rem; color: var(--accent); min-width: 30px;"></span>
             </div>
         </div>
         <div class="field-row">
-            <label for="start_time_val">Start time</label>
+            <label for="start_time_val">Start time <span style="color: var(--danger);">*</span></label>
             <input type="time" id="start_time_val" name="start_time_val" required>
         </div>
         <div class="field-row">
@@ -53,11 +53,11 @@
         </div>
         <div class="field-row">
             <label for="location">Location</label>
-            <input type="text" id="location" name="location" placeholder="e.g. Rooftop Terrace">
+            <input type="text" id="location" name="location" placeholder="Optional">
         </div>
         <div class="field-row">
             <label for="description">Description</label>
-            <textarea id="description" name="description" placeholder="Event description"></textarea>
+            <textarea id="description" name="description" placeholder="Optional"></textarea>
         </div>
     </div>
 
@@ -85,6 +85,13 @@
         <p class="field-group-label">Event Poster</p>
         <div style="padding: 14px;">
             <input type="file" name="poster" accept="image/*" style="font-size: 0.85rem; color: var(--text2);">
+        </div>
+    </div>
+
+    <div class="field-group">
+        <p class="field-group-label">Terms &amp; Conditions</p>
+        <div style="padding: 14px;">
+            <input type="file" name="terms" accept=".pdf" style="font-size: 0.85rem; color: var(--text2);">
         </div>
     </div>
 

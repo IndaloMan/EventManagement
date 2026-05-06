@@ -82,11 +82,11 @@
             <div class="ticket-ref">{{ reservation.reference_code }}</div>
             <div class="ticket-details">{{ reservation.name }} &middot; {{ reservation.num_tickets }} ticket{% if reservation.num_tickets > 1 %}s{% endif %}</div>
             {% if event.price > 0 %}
-            <div class="ticket-details" style="font-weight: 600; color: #000;">&euro;{{ "%.2f"|format(event.price * reservation.num_tickets) }} paid</div>
+            <div class="ticket-details" style="font-weight: 600; color: #000;">&euro;{{ (event.price * reservation.num_tickets)|fmt_eur }} paid</div>
             {% endif %}
             <div class="ticket-paid">PAID</div>
         </div>
-        <div class="ticket-footer">VIP Promotions &middot; {{ reservation.reference_code }}</div>
+        <div class="ticket-footer">{{ app_settings.promo_display_name }} &middot; {{ reservation.reference_code }}</div>
     </div>
 
     <div class="no-print" style="display: flex; gap: 10px; justify-content: center;">

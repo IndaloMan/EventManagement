@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}VIP Promotions Login{% endblock %}
+{% block title %}{{ app_settings.promo_display_name }} Login{% endblock %}
 {% block content %}
 <div class="login-container">
-    <p class="login-title">VIP Promotions Login</p>
+    <p class="login-title">{{ app_settings.promo_display_name }} Login</p>
     <form method="POST" action="{{ url_for('admin_login') }}">
         <div class="field-group">
             <div class="field-row">

@@ -27,7 +27,7 @@
     <div class="card-body">
         <p style="font-size: 0.8rem; color: var(--text3); margin-bottom: 6px;">{{ event.business.name }}</p>
         <p style="font-size: 0.85rem; color: var(--text2);">
-            {% if event.price > 0 %}&euro;{{ "%.2f"|format(event.price) }} pp &middot; {% endif %}
+            {% if event.price > 0 %}&euro;{{ event.price|fmt_eur }} pp &middot; {% endif %}
             {{ event.tickets_reserved }} reserved
             {% if event.max_capacity > 0 %} / {{ event.max_capacity }}{% endif %}
         </p>

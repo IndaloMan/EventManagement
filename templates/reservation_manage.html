@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Reservation {{ reservation.reference_code }}{% endblock %}
+{% block content %}
+<p class="section-title">Your Reservation</p>
+
+<div class="field-group">
+    <div class="field-row">
+        <label>Reference</label>
+        <span style="font-size: 1.1rem; font-weight: 700; color: var(--accent); letter-spacing: 1px;">{{ reservation.reference_code }}</span>
+    </div>
+    <div class="field-row">
+        <label>Status</label>
+        <span class="badge badge-{{ reservation.status }}">{{ reservation.status }}</span>
+    </div>
+</div>
+
+<div class="field-group">
+    <p class="field-group-label">Event</p>
+    <div class="field-row">
+        <label>Title</label>
+        <span style="font-size: 0.95rem;">{{ event.title }}</span>
+    </div>
+    <div class="field-row">
+        <label>Venue</label>
+        <span style="font-size: 0.95rem;">{{ event.business.name }}</span>
+    </div>
+    <div class="field-row">
+        <label>Date</label>
+        <span style="font-size: 0.95rem;">{{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}{% if event.end_time_text %} — {{ event.end_time_text }}{% elif event.end_time %} — {{ event.end_time.strftime('%H:%M') }}{% endif %}</span>
+    </div>
+    {% if event.location %}
+    <div class="field-row">
+        <label>Location</label>
+        <span style="font-size: 0.95rem;">{{ event.location }}</span>
+    </div>
+    {% endif %}
+</div>
+
+<div class="field-group">
+    <p class="field-group-label">Your Details</p>
+    <div class="field-row">
+        <label>Name</label>
+        <span style="font-size: 0.95rem;">{{ reservation.name }}</span>
+    </div>
+    <div class="field-row">
+        <label>Tickets</label>
+        <span style="font-size: 0.95rem;">{{ reservation.num_tickets }}</span>
+    </div>
+    {% if event.price > 0 %}
+    <div class="field-row">
+        <label>Total</label>
+        <span style="font-size: 0.95rem; font-weight: 600; color: var(--accent2);">&euro;{{ (event.price * reservation.num_tickets)|fmt_eur }}</span>
+    </div>
+    {% endif %}
+</div>
+
+{% if reservation.status == 'pending' %}
+<form method="POST" action="{{ url_for('reservation_manage', reference_code=reservation.reference_code) }}">
+    <input type="hidden" name="action" value="update">
+    <div class="field-group">
+        <p class="field-group-label">Change Tickets</p>
+        <div class="field-row">
+            <label for="num_tickets">Quantity</label>
+            <select id="num_tickets" name="num_tickets">
+                {% set max_qty = event.max_capacity - (event.tickets_reserved - reservation.num_tickets) if event.max_capacity > 0 else 10 %}
+                {% set limit = [max_qty, 10] | min %}
+                {% for i in range(1, limit + 1) %}
+                <option value="{{ i }}" {% if i == reservation.num_tickets %}selected{% endif %}>{{ i }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <button type="submit" class="btn btn-success" style="width: 100%;">Update Reservation</button>
+</form>
+
+<div style="margin-top: 24px; border: 1px solid var(--danger); border-radius: 12px; padding: 14px;">
+    <form method="POST" action="{{ url_for('reservation_manage', reference_code=reservation.reference_code) }}">
+        <input type="hidden" name="action" value="cancel">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+            <input type="checkbox" id="confirm-cancel" style="width: 20px; height: 20px; flex-shrink: 0;">
+            <label for="confirm-cancel" style="font-size: 0.85rem; color: var(--danger);">Do you really want to cancel this reservation?</label>
+        </div>
+        <button type="submit" class="btn" id="cancel-btn" style="width: 100%; background: var(--danger); opacity: 0.45;" disabled>Cancel Reservation</button>
+    </form>
+</div>
+
+<script>
+document.getElementById('confirm-cancel').addEventListener('change', function() {
+    var btn = document.getElementById('cancel-btn');
+    btn.disabled = !this.checked;
+    btn.style.opacity = this.checked ? '1' : '0.45';
+});
+</script>
+
+{% elif reservation.status == 'cancelled' %}
+<div style="text-align: center; padding: 20px; border: 1px solid var(--danger); border-radius: 12px; margin-top: 16px;">
+    <p style="color: var(--danger); font-size: 0.95rem; font-weight: 600;">This reservation has been cancelled.</p>
+</div>
+
+{% elif reservation.status == 'paid' %}
+<div style="text-align: center; padding: 20px; border: 1px solid var(--accent2); border-radius: 12px; margin-top: 16px;">
+    <p style="color: var(--accent2); font-size: 0.95rem; font-weight: 600;">This reservation has been paid.</p>
+    <p style="color: var(--text2); font-size: 0.85rem; margin-top: 8px;">Please show your reference code or QR code at the door.</p>
+</div>
+{% endif %}
+{% endblock %}
