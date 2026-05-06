@@ -333,7 +333,7 @@ body {
 .admin-table th {
     text-align: left;
     padding: 10px 8px;
-    color: var(--text3);
+    color: #fff;
     font-size: 0.7rem;
     font-weight: 600;
     text-transform: uppercase;

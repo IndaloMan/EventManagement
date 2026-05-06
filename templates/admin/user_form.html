@@ -5,7 +5,7 @@
 
 <form method="POST" {% if user %}data-track-changes{% endif %}>
     <div class="field-group">
-        <p class="field-group-label">Account</p>
+        <p class="field-group-label">User Details</p>
         {% if user %}
         <div class="field-row">
             <label for="username">Login</label>
@@ -31,13 +31,9 @@
             <label for="phone">Phone</label>
             <input type="tel" id="phone" name="phone" value="{{ user.phone if user else '' }}" placeholder="Optional">
         </div>
-    </div>
-
-    {% if current_user.role_exact in ('global_admin', 'owner') %}
-    <div class="field-group">
-        <p class="field-group-label">Role</p>
+        {% if current_user.role_exact in ('global_admin', 'owner') %}
         <div class="field-row">
-            <label for="role">Role</label>
+            <label for="role">Role <span style="color: var(--danger);">*</span></label>
             <select id="role" name="role" onchange="toggleBusinesses(this.value)">
                 <option value="cashier" {% if user and user.role_exact == 'cashier' %}selected{% endif %}>Cashier</option>
                 <option value="event_security" {% if user and user.role_exact == 'event_security' %}selected{% endif %}>Event Security</option>
@@ -48,7 +44,10 @@
                 {% endif %}
             </select>
         </div>
+        {% endif %}
     </div>
+
+    {% if current_user.role_exact in ('global_admin', 'owner') %}
 
     <div id="business-select" class="field-group" style="{% if not user or user.role_exact not in ('owner', 'cashier') %}display: none;{% endif %}">
         <p class="field-group-label">Assigned Businesses</p>
