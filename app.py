@@ -1205,6 +1205,9 @@ def init_db():
             if 'is_comp' not in res_cols:
                 conn.execute(db.text("ALTER TABLE reservations ADD COLUMN is_comp BOOLEAN DEFAULT 0"))
                 conn.commit()
+            if 'lang' not in res_cols:
+                conn.execute(db.text("ALTER TABLE reservations ADD COLUMN lang VARCHAR(2) DEFAULT 'en'"))
+                conn.commit()
             ev_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(events)"))]
             if 'event_code' not in ev_cols:
                 conn.execute(db.text("ALTER TABLE events ADD COLUMN event_code VARCHAR(6)"))
