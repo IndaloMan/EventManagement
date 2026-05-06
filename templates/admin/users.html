@@ -19,8 +19,7 @@
         <span class="card-chevron">&rsaquo;</span>
     </div>
     <div class="card-body">
-        <p style="font-size: 0.85rem; color: var(--text2);">{{ user.username }}</p>
-        {% if user.email %}<p style="font-size: 0.85rem; color: var(--text3);">{{ user.email }}</p>{% endif %}
+        {% if user.email %}<p style="font-size: 0.85rem; color: var(--text2);">{{ user.email }}</p>{% endif %}
         {% if user.role_exact == 'owner' %}
         <p style="font-size: 0.8rem; color: var(--text3); margin-top: 4px;">
             Businesses: {{ user.businesses | map(attribute='name') | join(', ') or 'None assigned' }}
