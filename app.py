@@ -1198,6 +1198,9 @@ def init_db():
                 conn.execute(db.text("ALTER TABLE admins ADD COLUMN reset_token_expires DATETIME"))
                 conn.commit()
             event_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(events)"))]
+            if 'end_time_text' not in event_cols:
+                conn.execute(db.text("ALTER TABLE events ADD COLUMN end_time_text VARCHAR(100)"))
+                conn.commit()
             if 'terms_filename' not in event_cols:
                 conn.execute(db.text("ALTER TABLE events ADD COLUMN terms_filename VARCHAR(256)"))
                 conn.commit()
