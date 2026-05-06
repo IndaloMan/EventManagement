@@ -1,5 +1,11 @@
 """UI string translations for public-facing pages. Admin UI remains English."""
 
+# Add new languages here — picked up automatically by the Test Reservation button
+SUPPORTED_LANGUAGES = [
+    ('en', 'English'),
+    ('es', 'Español'),
+]
+
 # Spanish day/month names for date formatting
 _DAYS_LONG_ES = {
     'Monday': 'Lunes', 'Tuesday': 'Martes', 'Wednesday': 'Miércoles',

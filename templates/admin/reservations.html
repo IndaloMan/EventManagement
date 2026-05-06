@@ -26,6 +26,24 @@
     </form>
 </div>
 
+{% if selected_event %}
+<div style="display: flex; gap: 10px; align-items: center; margin-bottom: 16px; padding: 12px 14px; border: 1px solid #ff9f0a; border-radius: 10px;">
+    <span style="font-size: 0.75rem; color: #ff9f0a; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Test Reservation</span>
+    <select id="test-lang" style="flex: 1;">
+        {% for code, name in supported_languages %}
+        <option value="{{ code }}">{{ name }}</option>
+        {% endfor %}
+    </select>
+    <button onclick="openTestReservation()" class="btn btn-sm" style="background: #ff9f0a; color: #1a1a1a; white-space: nowrap;">Open Form</button>
+</div>
+<script>
+function openTestReservation() {
+    var lang = document.getElementById('test-lang').value;
+    window.open('/reserve/{{ selected_event }}?lang=' + lang, '_blank');
+}
+</script>
+{% endif %}
+
 {% if reservations %}
 <div class="field-group" style="overflow-x: auto;">
     <table class="admin-table">

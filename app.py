@@ -16,7 +16,7 @@ from models import db, Admin, Business, Event, Reservation, ReservationLog, Main
 from calendar_sync import fetch_upcoming_events
 from qr_generator import generate_event_qr, generate_reference_qr_base64
 from email_sender import send_confirmation_email, send_cancellation_email, send_password_reset_email
-from translations import TRANSLATIONS, format_date_long, format_date_short
+from translations import TRANSLATIONS, SUPPORTED_LANGUAGES, format_date_long, format_date_short
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -46,7 +46,8 @@ def inject_globals():
     if not settings:
         settings = AppSettings()
     lang = get_lang()
-    return {'app_settings': settings, 't': TRANSLATIONS[lang], 'lang': lang}
+    return {'app_settings': settings, 't': TRANSLATIONS[lang], 'lang': lang,
+            'supported_languages': SUPPORTED_LANGUAGES}
 
 
 @app.before_request
