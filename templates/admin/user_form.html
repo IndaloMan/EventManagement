@@ -54,6 +54,18 @@
         </div>
         {% endfor %}
     </div>
+
+    <div id="event-select" class="field-group" style="{% if not user or user.role_exact not in ('event_manager', 'event_security') %}display: none;{% endif %}">
+        <p class="field-group-label">Assigned Events</p>
+        {% for event in events %}
+        <div class="field-row">
+            <span style="flex: 1; font-size: 0.9rem;">{{ event.title }}<br><span style="font-size: 0.75rem; color: var(--text3);">{{ event.start_time.strftime('%a %d %b %Y') }}</span></span>
+            <input type="checkbox" name="event_ids" value="{{ event.id }}"
+                   {% if user and event in user.managed_events %}checked{% endif %}
+                   style="width: 20px; height: 20px; flex-shrink: 0;">
+        </div>
+        {% endfor %}
+    </div>
     {% endif %}
 
     {% if user %}
@@ -74,6 +86,7 @@
 <script>
 function toggleBusinesses(role) {
     document.getElementById('business-select').style.display = (role === 'owner' || role === 'cashier') ? 'block' : 'none';
+    document.getElementById('event-select').style.display = (role === 'event_manager' || role === 'event_security') ? 'block' : 'none';
 }
 document.getElementById('toggle-pw').addEventListener('click', function() {
     var pw = document.getElementById('password');

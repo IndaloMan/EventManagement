@@ -592,13 +592,20 @@ def admin_user_new():
                 if biz:
                     admin.businesses.append(biz)
 
+        if role in ('event_manager', 'event_security'):
+            for eid in request.form.getlist('event_ids'):
+                event = db.session.get(Event, int(eid))
+                if event:
+                    admin.managed_events.append(event)
+
         db.session.add(admin)
         db.session.commit()
         flash(f'User "{name}" created.', 'success')
         return redirect(url_for('admin_users'))
 
     businesses = Business.query.filter_by(is_active=True).all()
-    return render_template('admin/user_form.html', user=None, businesses=businesses)
+    events = current_user.get_accessible_events()
+    return render_template('admin/user_form.html', user=None, businesses=businesses, events=events)
 
 
 @app.route('/admin/users/<int:user_id>', methods=['GET', 'POST'])
@@ -625,6 +632,12 @@ def admin_user_edit(user_id):
                 biz = db.session.get(Business, int(bid))
                 if biz:
                     user.businesses.append(biz)
+        if user.role in ('event_manager', 'event_security'):
+            user.managed_events.clear()
+            for eid in request.form.getlist('event_ids'):
+                event = db.session.get(Event, int(eid))
+                if event:
+                    user.managed_events.append(event)
 
         new_password = request.form.get('password', '').strip()
         if new_password:
@@ -635,7 +648,8 @@ def admin_user_edit(user_id):
         return redirect(url_for('admin_users'))
 
     businesses = Business.query.filter_by(is_active=True).all()
-    return render_template('admin/user_form.html', user=user, businesses=businesses)
+    events = current_user.get_accessible_events()
+    return render_template('admin/user_form.html', user=user, businesses=businesses, events=events)
 
 
 # ---------------------------------------------------------------------------
