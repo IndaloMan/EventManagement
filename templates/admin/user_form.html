@@ -6,12 +6,6 @@
 <form method="POST" {% if user %}data-track-changes{% endif %}>
     <div class="field-group">
         <p class="field-group-label">User Details</p>
-        {% if user %}
-        <div class="field-row">
-            <label for="username">Login</label>
-            <input type="text" id="username" name="username" value="{{ user.username }}" readonly style="color: var(--text3);">
-        </div>
-        {% endif %}
         <div class="field-row">
             <label for="email">Email <span style="color: var(--danger);">*</span></label>
             <input type="email" id="email" name="email" value="{{ user.email if user else '' }}" required placeholder="Used for login and password reset">
