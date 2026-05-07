@@ -175,6 +175,7 @@ class Reservation(db.Model):
     phone = db.Column(db.String(30))
     num_tickets = db.Column(db.Integer, nullable=False, default=1)
     status = db.Column(db.String(20), default='pending')
+    lang = db.Column(db.String(2), default='en')
     is_comp = db.Column(db.Boolean, default=False)
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

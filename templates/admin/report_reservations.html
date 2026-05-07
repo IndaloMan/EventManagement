@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Reservations — {{ event.title }}{% endblock %}
+{% block content %}
+<style>
+@media print {
+    #header, #tabs, .no-print { display: none !important; }
+    #content { padding: 0 !important; overflow: visible !important; height: auto !important; }
+    body, #app { background: #fff !important; color: #000 !important; }
+    .report-table th, .report-table td { color: #000 !important; border-color: #ccc !important; }
+    .report-table th { background: #f0f0f0 !important; }
+    .report-header h2, .report-header p { color: #000 !important; }
+    .badge-paid { background: #d4edda !important; color: #155724 !important; }
+    .badge-pending { background: #fff3cd !important; color: #856404 !important; }
+    .badge-cancelled { background: #f8d7da !important; color: #721c24 !important; }
+}
+.report-header { margin-bottom: 16px; }
+.report-header h2 { font-size: 1.1rem; font-weight: 700; }
+.report-header p { font-size: 0.8rem; color: var(--text3); margin-top: 2px; }
+.report-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.report-table th { text-align: left; padding: 8px; color: #fff; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid var(--border); background: var(--surface2); }
+.report-table td { padding: 8px; border-bottom: 1px solid var(--border); color: var(--text2); vertical-align: top; }
+.report-table tr:last-child td { border-bottom: none; }
+.report-summary { font-size: 0.82rem; color: var(--text3); margin-top: 10px; }
+</style>
+
+<div class="no-print" style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+    <a href="{{ url_for('admin_reports') }}" class="btn btn-back">← Reports</a>
+    <button onclick="window.print()" class="btn btn-primary">Print / Save PDF</button>
+    <a href="{{ url_for('admin_report_reservations', event_id=event.id) }}" class="btn {% if not status_filter %}btn-primary{% else %}btn-surface{% endif %}">All</a>
+    <a href="{{ url_for('admin_report_reservations', event_id=event.id, status='paid') }}" class="btn {% if status_filter == 'paid' %}btn-success{% else %}btn-surface{% endif %}">Paid</a>
+    <a href="{{ url_for('admin_report_reservations', event_id=event.id, status='pending') }}" class="btn {% if status_filter == 'pending' %}btn-primary{% else %}btn-surface{% endif %}">Pending</a>
+    <a href="{{ url_for('admin_report_reservations', event_id=event.id, status='cancelled') }}" class="btn {% if status_filter == 'cancelled' %}btn-danger{% else %}btn-surface{% endif %}">Cancelled</a>
+</div>
+
+<div class="report-header">
+    <h2>{{ event.title }}</h2>
+    <p>{{ event.business.name }} &middot; {{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}</p>
+    <p>{% if status_filter %}{{ status_filter | capitalize }} reservations{% else %}All reservations{% endif %} &middot; sorted by name &middot; printed {{ now.strftime('%d %b %Y %H:%M') }}</p>
+</div>
+
+{% if reservations %}
+<div style="overflow-x: auto;">
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Ref</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Lang</th>
+                <th>Qty</th>
+                {% if event.price > 0 %}<th>Amount</th>{% endif %}
+                <th>Status</th>
+                <th>Booked</th>
+                <th class="no-print">Detail</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in reservations %}
+            <tr>
+                <td style="font-weight: 600;">{{ r.name }}</td>
+                <td style="font-family: monospace; letter-spacing: 1px;">{{ r.reference_code }}</td>
+                <td>{{ r.email or '—' }}</td>
+                <td>{{ r.phone or '—' }}</td>
+                <td style="text-transform: uppercase;">{{ r.lang or 'en' }}</td>
+                <td>{{ r.num_tickets }}</td>
+                {% if event.price > 0 %}
+                <td>{% if r.is_comp %}COMP{% else %}&euro;{{ (event.price * r.num_tickets)|fmt_eur }}{% endif %}</td>
+                {% endif %}
+                <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
+                <td style="white-space: nowrap;">{{ r.created_at.strftime('%d %b %Y %H:%M') }}</td>
+                <td class="no-print"><a href="{{ url_for('admin_report_booking', res_id=r.id) }}" style="color: var(--accent); font-size: 0.75rem;">Detail</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="report-summary">{{ reservations | length }} reservation(s){% if event.price > 0 %} &middot; Total tickets: {{ reservations | sum(attribute='num_tickets') }} &middot; Revenue: &euro;{{ reservations | selectattr('status', 'equalto', 'paid') | rejectattr('is_comp') | map(attribute='num_tickets') | sum * event.price | fmt_eur }}{% endif %}</p>
+{% else %}
+<p style="color: var(--text3); font-size: 0.85rem; padding: 20px 0;">No reservations found.</p>
+{% endif %}
+{% endblock %}

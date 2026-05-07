@@ -3,15 +3,11 @@
 {% block content %}
 <p class="section-title">All Events</p>
 
-{% if current_user.role_exact in ('global_admin', 'owner') %}
 <div class="btn-row" style="margin-bottom: 16px;">
-    <a href="{{ url_for('admin_event_new') }}" class="btn btn-success btn-sm" style="flex: 1;">New Event</a>
-    <a href="{{ url_for('admin_sync_events') }}" class="btn btn-primary btn-sm" style="flex: 1;">Sync Calendar</a>
-</div>
-{% endif %}
-
-<div style="margin-bottom: 16px;">
-    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-surface btn-sm">Back to Dashboard</a>
+    {% if current_user.role_exact in ('global_admin', 'owner') %}
+    <a href="{{ url_for('admin_event_new') }}" class="btn btn-success" style="flex: 1;">New Event</a>
+    {% endif %}
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-back" style="flex: 1;">Back</a>
 </div>
 
 {% for event in events %}
@@ -31,17 +27,16 @@
             {{ event.tickets_reserved }} reserved
             {% if event.max_capacity > 0 %} / {{ event.max_capacity }}{% endif %}
         </p>
-        {% if event.managers %}
-        <p style="font-size: 0.8rem; color: var(--text3); margin-top: 4px;">
-            Managed by: {{ event.managers | map(attribute='name') | join(', ') }}
-        </p>
-        {% endif %}
+        {% set mgrs = event.managers | selectattr('role', 'equalto', 'event_manager') | list %}
+        {% set sec = event.managers | selectattr('role', 'equalto', 'event_security') | list %}
+        <p style="font-size: 0.8rem; color: var(--text3); margin-top: 4px;">Managed by: {{ mgrs | map(attribute='name') | join(', ') or 'None' }}</p>
+        <p style="font-size: 0.8rem; color: var(--text3); margin-top: 2px;">Security: {{ sec | map(attribute='name') | join(', ') or 'None' }}</p>
         {% if event.is_past %}
         <span class="badge badge-cancelled" style="margin: 6px 0;">Past</span>
         {% endif %}
         <div class="btn-row">
-            <a href="{{ url_for('admin_event_detail', event_id=event.id) }}" class="btn btn-surface btn-sm" style="flex: 1;">Manage</a>
-            <a href="{{ url_for('admin_generate_qr', event_id=event.id) }}" class="btn btn-surface btn-sm" style="flex: 1;">QR Code</a>
+            <a href="{{ url_for('admin_event_detail', event_id=event.id) }}" class="btn btn-surface" style="flex: 1;">Manage</a>
+            <a href="{{ url_for('admin_generate_qr', event_id=event.id) }}" class="btn btn-surface" style="flex: 1;">QR Code</a>
         </div>
     </div>
 </div>

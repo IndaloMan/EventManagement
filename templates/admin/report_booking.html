@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Booking {{ reservation.reference_code }} — Detail{% endblock %}
+{% block content %}
+<style>
+@media print {
+    #header, #tabs, .no-print { display: none !important; }
+    #content { padding: 0 !important; overflow: visible !important; height: auto !important; }
+    body, #app { background: #fff !important; color: #000 !important; }
+    .field-group { background: #f8f8f8 !important; border: 1px solid #ddd !important; }
+    .field-group-label { color: #333 !important; }
+    .field-row { border-bottom-color: #ddd !important; }
+    .field-row label { color: #555 !important; }
+    .report-ref { color: #0a84ff !important; }
+    .badge-paid { background: #d4edda !important; color: #155724 !important; }
+    .badge-pending { background: #fff3cd !important; color: #856404 !important; }
+    .badge-cancelled { background: #f8d7da !important; color: #721c24 !important; }
+    .audit-table th, .audit-table td { color: #000 !important; border-color: #ccc !important; }
+    .audit-table th { background: #f0f0f0 !important; }
+}
+.report-ref { font-size: 2rem; font-weight: 700; color: var(--accent); letter-spacing: 3px; text-align: center; padding: 12px 0; }
+.audit-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.audit-table th { text-align: left; padding: 8px; color: #fff; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid var(--border); background: var(--surface2); }
+.audit-table td { padding: 8px; border-bottom: 1px solid var(--border); color: var(--text2); }
+.audit-table tr:last-child td { border-bottom: none; }
+</style>
+
+<div class="no-print" style="display: flex; gap: 10px; margin-bottom: 16px;">
+    <a href="javascript:history.back()" class="btn btn-back" style="flex: 1;">← Back</a>
+    <button onclick="window.print()" class="btn btn-primary" style="flex: 1;">Print / Save PDF</button>
+</div>
+
+<div class="report-ref">{{ reservation.reference_code }}</div>
+
+<div class="field-group">
+    <p class="field-group-label">Customer</p>
+    <div class="field-row">
+        <label>Name</label>
+        <span>{{ reservation.name }}</span>
+    </div>
+    <div class="field-row">
+        <label>Email</label>
+        <span>{{ reservation.email or '—' }}</span>
+    </div>
+    <div class="field-row">
+        <label>Phone</label>
+        <span>{{ reservation.phone or '—' }}</span>
+    </div>
+    <div class="field-row">
+        <label>Language</label>
+        <span style="text-transform: uppercase;">{{ reservation.lang or 'en' }}</span>
+    </div>
+</div>
+
+<div class="field-group">
+    <p class="field-group-label">Booking</p>
+    <div class="field-row">
+        <label>Status</label>
+        <span class="badge badge-{{ reservation.status }}">{{ reservation.status }}</span>
+    </div>
+    <div class="field-row">
+        <label>Tickets</label>
+        <span>{{ reservation.num_tickets }}</span>
+    </div>
+    {% if event.price > 0 %}
+    <div class="field-row">
+        <label>Amount</label>
+        <span style="font-weight: 600; color: var(--accent2);">{% if reservation.is_comp %}COMP (€0){% else %}&euro;{{ (event.price * reservation.num_tickets)|fmt_eur }}{% endif %}</span>
+    </div>
+    {% endif %}
+    <div class="field-row">
+        <label>Booked</label>
+        <span>{{ reservation.created_at.strftime('%A %d %B %Y, %H:%M') }}</span>
+    </div>
+    {% if reservation.paid_at %}
+    <div class="field-row">
+        <label>Paid at</label>
+        <span>{{ reservation.paid_at.strftime('%A %d %B %Y, %H:%M') }}</span>
+    </div>
+    {% endif %}
+</div>
+
+<div class="field-group">
+    <p class="field-group-label">Event</p>
+    <div class="field-row">
+        <label>Title</label>
+        <span>{{ event.title }}</span>
+    </div>
+    <div class="field-row">
+        <label>Venue</label>
+        <span>{{ event.business.name }}</span>
+    </div>
+    <div class="field-row">
+        <label>Date</label>
+        <span>{{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}</span>
+    </div>
+    {% if event.location %}
+    <div class="field-row">
+        <label>Location</label>
+        <span>{{ event.location }}</span>
+    </div>
+    {% endif %}
+</div>
+
+<p class="section-title" style="margin-top: 20px;">Audit Trail</p>
+
+{% if reservation.logs %}
+<div class="field-group" style="overflow-x: auto;">
+    <table class="audit-table">
+        <thead>
+            <tr>
+                <th>Date / Time</th>
+                <th>Action</th>
+                <th>By</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in reservation.logs %}
+            <tr>
+                <td style="white-space: nowrap;">{{ log.created_at.strftime('%d %b %Y, %H:%M:%S') }}</td>
+                <td><span class="badge badge-{{ log.action }}">{{ log.action }}</span></td>
+                <td>{{ log.admin.name if log.admin else '—' }}</td>
+                <td>{{ log.notes or '' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p style="color: var(--text3); font-size: 0.85rem;">No audit trail entries.</p>
+{% endif %}
+
+{% endblock %}

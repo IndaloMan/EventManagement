@@ -26,17 +26,36 @@
     </form>
 </div>
 
+{% if selected_event %}
+<div style="display: flex; gap: 10px; align-items: center; margin-bottom: 16px; padding: 12px 14px; border: 1px solid #ff9f0a; border-radius: 10px;">
+    <span style="font-size: 0.75rem; color: #ff9f0a; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Test Reservation</span>
+    <select id="test-lang" style="flex: 1;">
+        {% for code, name in supported_languages %}
+        <option value="{{ code }}">{{ name }}</option>
+        {% endfor %}
+    </select>
+    <button onclick="openTestReservation()" class="btn btn-sm" style="background: #ff9f0a; color: #1a1a1a; white-space: nowrap;">Open Form</button>
+</div>
+<script>
+function openTestReservation() {
+    var lang = document.getElementById('test-lang').value;
+    window.open('/reserve/{{ selected_event }}?lang=' + lang, '_blank');
+}
+</script>
+{% endif %}
+
 {% if reservations %}
 <div class="field-group" style="overflow-x: auto;">
     <table class="admin-table">
         <thead>
             <tr>
-                <th>Ref</th>
-                <th>Event</th>
-                <th>Name</th>
-                <th>Phone</th>
-                <th>Qty</th>
-                <th>Status</th>
+                <th data-col="0" class="sortable">Ref</th>
+                <th data-col="1" class="sortable">Event</th>
+                <th data-col="2" class="sortable">Name</th>
+                <th data-col="3" class="sortable">Booking Date</th>
+                <th data-col="4" class="sortable">Phone</th>
+                <th data-col="5" class="sortable">Qty</th>
+                <th data-col="6" class="sortable">Status</th>
                 <th>Action</th>
             </tr>
         </thead>
@@ -46,6 +65,7 @@
                 <td><a href="{{ url_for('admin_reservation_detail', res_id=r.id) }}" style="font-weight: 600; color: var(--accent); text-decoration: none;">{{ r.reference_code }}</a></td>
                 <td style="font-size: 0.8rem;">{{ r.event.title }}</td>
                 <td>{{ r.name }}</td>
+                <td style="font-size: 0.8rem; white-space: nowrap;" data-sort-value="{{ r.created_at.strftime('%Y%m%d%H%M') }}">{{ r.created_at.strftime('%d %b %Y %H:%M') }}</td>
                 <td style="font-size: 0.8rem;">{{ r.phone }}</td>
                 <td>{{ r.num_tickets }}</td>
                 <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
@@ -77,7 +97,42 @@
 <p style="color: var(--text3); font-size: 0.85rem; text-align: center; padding: 20px;">No reservations match the selected filters.</p>
 {% endif %}
 
+<style>
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { color: var(--accent); }
+.sortable::after { content: ' \2195'; opacity: 0.4; font-size: 0.65rem; }
+.sortable.asc::after { content: ' \2191'; opacity: 1; }
+.sortable.desc::after { content: ' \2193'; opacity: 1; }
+</style>
+<script>
+(function () {
+    var lastCol = null, asc = true;
+    document.querySelectorAll('th.sortable').forEach(function (th) {
+        th.addEventListener('click', function () {
+            var col = parseInt(th.dataset.col);
+            asc = (lastCol === col) ? !asc : true;
+            lastCol = col;
+            document.querySelectorAll('th.sortable').forEach(function (h) {
+                h.classList.remove('asc', 'desc');
+            });
+            th.classList.add(asc ? 'asc' : 'desc');
+            var tbody = th.closest('table').querySelector('tbody');
+            var rows = Array.from(tbody.querySelectorAll('tr'));
+            rows.sort(function (a, b) {
+                var aCell = a.querySelectorAll('td')[col];
+                var bCell = b.querySelectorAll('td')[col];
+                var aVal = aCell.dataset.sortValue || aCell.textContent.trim().toLowerCase();
+                var bVal = bCell.dataset.sortValue || bCell.textContent.trim().toLowerCase();
+                if (!isNaN(aVal) && !isNaN(bVal)) { aVal = parseFloat(aVal); bVal = parseFloat(bVal); }
+                return aVal < bVal ? (asc ? -1 : 1) : aVal > bVal ? (asc ? 1 : -1) : 0;
+            });
+            rows.forEach(function (r) { tbody.appendChild(r); });
+        });
+    });
+})();
+</script>
+
 <div style="margin-top: 16px;">
-    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-surface" style="width: 100%;">Back to Dashboard</a>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-back" style="width: 100%;">Back</a>
 </div>
 {% endblock %}

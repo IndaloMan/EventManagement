@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang | default('en') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reserve Tickets</title>
+    <title>{{ t.reserve_tickets }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body class="embed-mode">
@@ -11,43 +11,44 @@
         <main id="content">
             {% if event %}
             <h2 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 12px;">{{ event.title }}</h2>
-            <p style="font-size: 0.85rem; color: var(--text2);">{{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}{% if event.end_time_text %} — {{ event.end_time_text }}{% elif event.end_time %} — {{ event.end_time.strftime('%H:%M') }}{% endif %}</p>
+            <p style="font-size: 0.85rem; color: var(--text2);">{{ event.start_time | fmt_date(lang) }}{% if event.end_time_text %} — {{ event.end_time_text }}{% elif event.end_time %} — {{ event.end_time.strftime('%H:%M') }}{% endif %}</p>
             {% if event.price > 0 %}
-            <div class="event-price">&euro;{{ event.price|fmt_eur }} per person</div>
+            <div class="event-price">&euro;{{ event.price|fmt_eur }} {{ t.per_person }}</div>
             {% endif %}
             <form method="POST" action="{{ url_for('reserve', event_id=event.id) }}" target="_top">
                 <div class="field-group" style="margin-top: 12px;">
                     <div class="field-row">
-                        <label for="name">Name <span style="color: var(--danger);">*</span></label>
-                        <input type="text" id="name" name="name" placeholder="Full name" required>
+                        <label for="name">{{ t.label_name }} <span style="color: var(--danger);">*</span></label>
+                        <input type="text" id="name" name="name" placeholder="{{ t.placeholder_name }}" required>
                     </div>
                     <div class="field-row">
-                        <label for="email">Email <span style="color: var(--danger);">*</span></label>
-                        <input type="email" id="email" name="email" placeholder="For confirmation" required>
+                        <label for="email">{{ t.label_email }} <span style="color: var(--danger);">*</span></label>
+                        <input type="email" id="email" name="email" placeholder="{{ t.placeholder_email }}" required>
                     </div>
                     <div class="field-row">
-                        <label for="phone">Phone</label>
-                        <input type="tel" id="phone" name="phone" placeholder="Optional">
+                        <label for="phone">{{ t.label_phone }}</label>
+                        <input type="tel" id="phone" name="phone" placeholder="{{ t.placeholder_phone }}">
                     </div>
                     <div class="field-row">
-                        <label for="num_tickets">Tickets</label>
+                        <label for="num_tickets">{{ t.label_tickets }}</label>
                         <select id="num_tickets" name="num_tickets">
                             {% for i in range(1, 11) %}<option value="{{ i }}">{{ i }}</option>{% endfor %}
                         </select>
                     </div>
                 </div>
-                {% if event.terms_filename %}
+                {% set terms = event_file(event, 'terms', lang) %}
+                {% if terms %}
                 <div class="field-group">
                     <div style="display: flex; align-items: center; gap: 8px; padding: 10px 14px;">
                         <input type="checkbox" id="agree_terms" name="agree_terms" value="1" required style="width: 18px; height: 18px; flex-shrink: 0;">
-                        <label for="agree_terms" style="font-size: 0.85rem; color: var(--text2); white-space: nowrap;">I agree to the <a href="{{ url_for('static', filename='uploads/' + event.terms_filename) }}" target="_blank" style="color: var(--accent);">Terms &amp; Conditions</a></label>
+                        <label for="agree_terms" style="font-size: 0.85rem; color: var(--text2); white-space: nowrap;">{{ t.agree_terms_prefix }} <a href="{{ url_for('static', filename='uploads/' + terms) }}" target="_blank" style="color: var(--accent);">{{ t.terms_link }}</a></label>
                     </div>
                 </div>
                 {% endif %}
-                <button type="submit" class="btn btn-success">Confirm Reservation</button>
+                <button type="submit" class="btn btn-success">{{ t.btn_confirm }}</button>
             </form>
             {% else %}
-            <p style="color: var(--text3); text-align: center; padding: 20px;">Event not available.</p>
+            <p style="color: var(--text3); text-align: center; padding: 20px;">{{ t.event_not_available }}</p>
             {% endif %}
         </main>
     </div>

@@ -7,8 +7,8 @@
     --danger: #ff453a;
     --warning: #ff9f0a;
     --text: #ffffff;
-    --text2: #ababab;
-    --text3: #636366;
+    --text2: #ffffff;
+    --text3: #ffffff;
     --border: #38383a;
     --tab-h: 56px;
     --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -203,6 +203,7 @@ body {
 .btn-success { background: var(--accent2); width: 100%; }
 .btn-danger { background: var(--danger); }
 .btn-surface { background: #48484a; color: var(--text); }
+.btn-back { background: #6E4AC7; color: var(--text); }
 
 .btn-sm {
     border-radius: 8px;
@@ -333,7 +334,7 @@ body {
 .admin-table th {
     text-align: left;
     padding: 10px 8px;
-    color: var(--text3);
+    color: #fff;
     font-size: 0.7rem;
     font-weight: 600;
     text-transform: uppercase;

@@ -44,14 +44,6 @@
     </div>
 
     <div class="field-group">
-        <p class="field-group-label">Google Calendar</p>
-        <div class="field-row">
-            <label for="google_calendar_id">Calendar ID</label>
-            <input type="text" id="google_calendar_id" name="google_calendar_id" value="{{ business.google_calendar_id if business else '' }}" placeholder="xxx@group.calendar.google.com">
-        </div>
-    </div>
-
-    <div class="field-group">
         <p class="field-group-label">Logo</p>
         <div style="padding: 14px;">
             {% if business and business.logo_filename %}

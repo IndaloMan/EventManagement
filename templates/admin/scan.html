@@ -7,17 +7,76 @@
     <div class="field-group">
         <div class="field-row">
             <label for="ref">Reference</label>
-            <input type="text" id="ref" placeholder="Enter or scan code" autofocus maxlength="8" style="text-transform: uppercase;">
+            <input type="text" id="ref" placeholder="Enter reference code" autofocus maxlength="8" style="text-transform: uppercase;">
         </div>
     </div>
-    <button type="submit" class="btn btn-primary">Look Up</button>
+    <button type="submit" class="btn btn-primary" style="margin-bottom: 10px;">Look Up</button>
 </form>
 
+<button id="btn-scan" class="btn btn-success" onclick="startScan()">Scan QR Code</button>
+
+<div id="scanner-box" style="display: none; margin-top: 16px;">
+    <video id="scanner-video" style="width: 100%; border-radius: 12px; background: #000;" playsinline></video>
+    <canvas id="scanner-canvas" style="display: none;"></canvas>
+    <p id="scanner-status" style="font-size: 0.85rem; color: var(--text3); text-align: center; margin-top: 8px;">Point camera at QR code…</p>
+    <button class="btn btn-surface" style="width: 100%; margin-top: 10px;" onclick="stopScan()">Stop Camera</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
 document.getElementById('scan-form').addEventListener('submit', function(e) {
     e.preventDefault();
     var ref = document.getElementById('ref').value.trim().toUpperCase();
     if (ref) window.location.href = '/admin/scan/' + ref;
 });
+
+var stream = null;
+var rafId = null;
+
+function startScan() {
+    document.getElementById('scanner-box').style.display = 'block';
+    document.getElementById('btn-scan').style.display = 'none';
+
+    var video = document.getElementById('scanner-video');
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(function(s) {
+            stream = s;
+            video.srcObject = s;
+            video.play();
+            requestAnimationFrame(tick);
+        })
+        .catch(function(err) {
+            document.getElementById('scanner-status').textContent = 'Camera access denied: ' + err.message;
+        });
+}
+
+function tick() {
+    var video = document.getElementById('scanner-video');
+    var canvas = document.getElementById('scanner-canvas');
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        var code = jsQR(imageData.data, imageData.width, imageData.height);
+        if (code) {
+            stopScan();
+            var data = code.data;
+            var parts = data.split('/');
+            var ref = parts[parts.length - 1].toUpperCase();
+            window.location.href = '/admin/scan/' + ref;
+            return;
+        }
+    }
+    rafId = requestAnimationFrame(tick);
+}
+
+function stopScan() {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    if (stream) { stream.getTracks().forEach(function(t) { t.stop(); }); stream = null; }
+    document.getElementById('scanner-box').style.display = 'none';
+    document.getElementById('btn-scan').style.display = 'block';
+}
 </script>
 {% endblock %}

@@ -28,6 +28,7 @@
         </div>
         <div class="field-row">
             <label>No fixed end</label>
+            <span style="flex: 1;"></span>
             <input type="checkbox" name="no_fixed_end" id="no_fixed_end"
                    {% if event.end_time_text %}checked{% endif %}
                    style="width: 20px; height: 20px;" onchange="toggleEndFields()">
@@ -48,11 +49,6 @@
             <label for="location">Location</label>
             <input type="text" id="location" name="location" value="{{ event.location or '' }}" placeholder="Optional">
         </div>
-        {% if event.gcal_event_id %}
-        <div style="padding: 8px 14px;">
-            <p style="font-size: 0.75rem; color: var(--warning);">&#9888; GCal event — title, dates and location will be overwritten on next calendar sync.</p>
-        </div>
-        {% endif %}
     </div>
 
     <div class="field-group">
@@ -79,14 +75,17 @@
         </div>
         <div class="field-row">
             <label>Active</label>
+            <span style="flex: 1;"></span>
             <input type="checkbox" name="is_active" {% if event.is_active %}checked{% endif %} style="width: 20px; height: 20px;">
         </div>
     </div>
 
     {% if current_user.role_exact in ('global_admin', 'owner') %}
+    {% set mgr_list = all_managers | selectattr('role', 'equalto', 'event_manager') | list %}
+    {% set sec_list = all_managers | selectattr('role', 'equalto', 'event_security') | list %}
     <div class="field-group">
         <p class="field-group-label">Event Managers</p>
-        {% for mgr in all_managers %}
+        {% for mgr in mgr_list %}
         <div class="field-row">
             <span style="flex: 1; font-size: 0.95rem;">{{ mgr.name }}</span>
             <input type="checkbox" name="manager_ids" value="{{ mgr.id }}"
@@ -94,9 +93,25 @@
                    style="width: 20px; height: 20px;">
         </div>
         {% endfor %}
-        {% if not all_managers %}
+        {% if not mgr_list %}
         <div class="field-row">
             <span style="font-size: 0.85rem; color: var(--text3);">No event managers created yet</span>
+        </div>
+        {% endif %}
+    </div>
+    <div class="field-group">
+        <p class="field-group-label">Security Staff</p>
+        {% for sec in sec_list %}
+        <div class="field-row">
+            <span style="flex: 1; font-size: 0.95rem;">{{ sec.name }}</span>
+            <input type="checkbox" name="manager_ids" value="{{ sec.id }}"
+                   {% if sec in event.managers %}checked{% endif %}
+                   style="width: 20px; height: 20px;">
+        </div>
+        {% endfor %}
+        {% if not sec_list %}
+        <div class="field-row">
+            <span style="font-size: 0.85rem; color: var(--text3);">No security staff created yet</span>
         </div>
         {% endif %}
     </div>
@@ -104,36 +119,44 @@
 
     <div class="field-group">
         <p class="field-group-label">Event Poster</p>
-        <div style="padding: 14px;">
-            {% if event.poster_filename %}
-            <img src="{{ url_for('static', filename='uploads/' + event.poster_filename) }}" alt="Poster" class="event-poster" style="margin-bottom: 10px;">
-            <div style="font-size: 0.8rem; color: var(--text3); margin-bottom: 8px;">Current: {{ event.poster_filename }}</div>
+        {% for code, name in supported_languages %}
+        {% set current_poster = event_file(event, 'poster', code) %}
+        <div style="padding: 12px 14px; {% if not loop.last %}border-bottom: 1px solid var(--border);{% endif %}">
+            <p style="font-size: 0.75rem; color: var(--text3); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">{{ name }}</p>
+            {% if current_poster %}
+            <img src="{{ url_for('static', filename='uploads/' + current_poster) }}" alt="Poster" class="event-poster" style="margin-bottom: 8px;">
+            <div style="font-size: 0.75rem; color: var(--text3); margin-bottom: 8px;">{{ current_poster }}</div>
             {% endif %}
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 <label class="btn btn-surface btn-sm" style="cursor: pointer; margin: 0;">
-                    {% if event.poster_filename %}Change File{% else %}Choose File{% endif %}
-                    <input type="file" name="poster" accept="image/*" style="display: none;" onchange="showChosen(this, 'poster-chosen')">
+                    {% if current_poster %}Change File{% else %}Choose File{% endif %}
+                    <input type="file" name="poster_{{ code }}" accept="image/*" style="display: none;" onchange="showChosen(this, 'poster-chosen-{{ code }}')">
                 </label>
-                <span id="poster-chosen" style="font-size: 0.8rem; color: var(--text2);"></span>
+                <span id="poster-chosen-{{ code }}" style="font-size: 0.8rem; color: var(--text2);"></span>
             </div>
         </div>
+        {% endfor %}
     </div>
 
     <div class="field-group">
         <p class="field-group-label">Terms &amp; Conditions</p>
-        <div style="padding: 14px;">
-            {% if event.terms_filename %}
-            <div style="font-size: 0.8rem; color: var(--text3); margin-bottom: 8px;">Current: {{ event.terms_filename }}</div>
-            <a href="{{ url_for('static', filename='uploads/' + event.terms_filename) }}" target="_blank" class="btn btn-surface btn-sm" style="margin-bottom: 10px; display: inline-block;">View T&amp;C PDF</a>
+        {% for code, name in supported_languages %}
+        {% set current_terms = event_file(event, 'terms', code) %}
+        <div style="padding: 12px 14px; {% if not loop.last %}border-bottom: 1px solid var(--border);{% endif %}">
+            <p style="font-size: 0.75rem; color: var(--text3); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">{{ name }}</p>
+            {% if current_terms %}
+            <div style="font-size: 0.75rem; color: var(--text3); margin-bottom: 6px;">{{ current_terms }}</div>
+            <a href="{{ url_for('static', filename='uploads/' + current_terms) }}" target="_blank" class="btn btn-surface btn-sm" style="margin-bottom: 8px; display: inline-block;">View PDF</a>
             {% endif %}
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 <label class="btn btn-surface btn-sm" style="cursor: pointer; margin: 0;">
-                    {% if event.terms_filename %}Change File{% else %}Choose File{% endif %}
-                    <input type="file" name="terms" accept=".pdf" style="display: none;" onchange="showChosen(this, 'terms-chosen')">
+                    {% if current_terms %}Change File{% else %}Choose File{% endif %}
+                    <input type="file" name="terms_{{ code }}" accept=".pdf" style="display: none;" onchange="showChosen(this, 'terms-chosen-{{ code }}')">
                 </label>
-                <span id="terms-chosen" style="font-size: 0.8rem; color: var(--text2);"></span>
+                <span id="terms-chosen-{{ code }}" style="font-size: 0.8rem; color: var(--text2);"></span>
             </div>
         </div>
+        {% endfor %}
     </div>
 
     <div class="btn-row" style="margin-top: 16px;">

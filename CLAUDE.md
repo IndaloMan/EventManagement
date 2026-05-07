@@ -102,3 +102,38 @@ pip install -r requirements.txt
 python app.py
 ```
 Opens on http://localhost:5000 — creates `events.db` and default admin on first run.
+
+## Branches
+| Branch | Purpose |
+|---|---|
+| `master` | Stable, deployable at all times |
+| `feature/spanish-language` | English/Spanish public UI translation (in progress) |
+
+## Reverting the Spanish Language Change
+If the language feature needs to be abandoned, from any state:
+
+**Option 1 — Abandon the branch entirely (no merge has happened):**
+```
+git checkout master
+git branch -D feature/spanish-language
+```
+Master is untouched. No further action needed.
+
+**Option 2 — Already merged to master by mistake:**
+Find the last good commit (before the merge):
+```
+git log --oneline master
+```
+Then reset master to that commit (replace `<hash>` with the commit hash):
+```
+git checkout master
+git revert -m 1 <merge-commit-hash>
+```
+This creates a new revert commit rather than rewriting history — safe if the repo has been pushed to GitHub.
+
+**Option 3 — Nuclear option (local only, not yet pushed):**
+```
+git checkout master
+git reset --hard <last-good-commit-hash>
+```
+Only use this if the bad merge has NOT been pushed to origin.

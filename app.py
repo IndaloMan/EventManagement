@@ -3,6 +3,7 @@
 import env  # noqa: F401
 import os
 import re
+from PIL import Image
 import uuid
 from functools import wraps
 from datetime import datetime, timedelta
@@ -13,9 +14,9 @@ from flask_login import (LoginManager, login_user, logout_user,
 from werkzeug.utils import secure_filename
 from config import Config
 from models import db, Admin, Business, Event, Reservation, ReservationLog, Maintenance, AppSettings, event_managers
-from calendar_sync import fetch_upcoming_events
 from qr_generator import generate_event_qr, generate_reference_qr_base64
 from email_sender import send_confirmation_email, send_cancellation_email, send_password_reset_email
+from translations import TRANSLATIONS, SUPPORTED_LANGUAGES, format_date_long, format_date_short
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -26,16 +27,27 @@ login_manager.login_view = 'admin_login'
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'}
 
-PUBLIC_ROUTES = ('index', 'business_events', 'reserve', 'reservation_manage',
-                 'embed_event', 'embed_business', 'static', 'manifest_json')
+PUBLIC_ROUTES = ('index', 'business_events', 'business_flyer', 'reserve', 'reservation_manage',
+                 'embed_event', 'embed_business', 'static', 'manifest_json', 'login_redirect')
+
+
+def get_lang():
+    """Detect language from URL param or browser Accept-Language header."""
+    lang = request.args.get('lang', '').lower()
+    if lang in ('en', 'es'):
+        return lang
+    best = request.accept_languages.best_match(['es', 'en'], default='en')
+    return best
 
 
 @app.context_processor
-def inject_app_settings():
+def inject_globals():
     settings = AppSettings.query.first()
     if not settings:
         settings = AppSettings()
-    return {'app_settings': settings}
+    lang = get_lang()
+    return {'app_settings': settings, 't': TRANSLATIONS[lang], 'lang': lang,
+            'supported_languages': SUPPORTED_LANGUAGES}
 
 
 @app.before_request
@@ -75,11 +87,60 @@ def owner_or_above(f):
     return decorated
 
 
+def get_event_file(event, file_type, lang='en'):
+    """Return filename for a language-specific event file, with fallbacks.
+
+    Priority: {event_code}_{type}_{lang}.ext → English version → legacy filename.
+    """
+    upload_folder = app.config.get('UPLOAD_FOLDER', 'static/uploads')
+    exts = ['jpg', 'jpeg', 'png', 'gif', 'webp'] if file_type == 'poster' else ['pdf']
+
+    if event.event_code:
+        for try_lang in ([lang, 'en'] if lang != 'en' else ['en']):
+            for ext in exts:
+                fname = f"{event.event_code}_{file_type}_{try_lang}.{ext}"
+                if os.path.exists(os.path.join(upload_folder, fname)):
+                    return fname
+
+    # Legacy fallback for files uploaded before this convention
+    return event.poster_filename if file_type == 'poster' else event.terms_filename
+
+
+def _save_event_file(file_obj, event_code, file_type, lang):
+    """Save uploaded file using naming convention, removing stale extension variants."""
+    if not file_obj or not file_obj.filename:
+        return
+    ext = file_obj.filename.rsplit('.', 1)[-1].lower() if '.' in file_obj.filename else ''
+    if file_type == 'poster' and ext not in {'png', 'jpg', 'jpeg', 'gif', 'webp'}:
+        return
+    if file_type == 'terms' and ext != 'pdf':
+        return
+    upload_folder = app.config['UPLOAD_FOLDER']
+    # Remove existing file for this slot with any extension
+    for old_ext in (['jpg', 'jpeg', 'png', 'gif', 'webp'] if file_type == 'poster' else ['pdf']):
+        old_path = os.path.join(upload_folder, f"{event_code}_{file_type}_{lang}.{old_ext}")
+        if os.path.exists(old_path):
+            os.remove(old_path)
+    file_obj.save(os.path.join(upload_folder, f"{event_code}_{file_type}_{lang}.{ext}"))
+
+
+app.jinja_env.globals['event_file'] = get_event_file
+
+
 @app.template_filter('fmt_eur')
 def fmt_eur(value):
     if not value:
         return '0'
     return '{:g}'.format(float(value))
+
+
+@app.template_filter('fmt_date')
+def fmt_date_filter(dt, lang='en', style='long'):
+    if dt is None:
+        return ''
+    if style == 'short':
+        return format_date_short(dt, lang)
+    return format_date_long(dt, lang)
 
 
 def generate_event_code():
@@ -166,7 +227,7 @@ def reserve(event_id):
             flash('Name and email are required.', 'error')
             return render_template('reserve.html', event=event)
 
-        if event.terms_filename and not request.form.get('agree_terms'):
+        if get_event_file(event, 'terms', get_lang()) and not request.form.get('agree_terms'):
             flash('You must agree to the Terms and Conditions.', 'error')
             return render_template('reserve.html', event=event)
 
@@ -187,7 +248,8 @@ def reserve(event_id):
             email=email,
             phone=phone,
             num_tickets=num_tickets,
-            status='pending'
+            status='pending',
+            lang=get_lang()
         )
         db.session.add(reservation)
         db.session.flush()
@@ -198,7 +260,7 @@ def reserve(event_id):
             f"{app.config['APP_URL']}/admin/scan/{reservation.reference_code}")
         settings = AppSettings.query.first()
         email_sent = send_confirmation_email(app.config, reservation, event, ref_qr_base64,
-                                             settings=settings)
+                                             settings=settings, lang=get_lang())
         if email_sent:
             log_reservation(reservation.id, 'email_sent',
                             notes=f'Confirmation sent to {reservation.email}')
@@ -242,7 +304,7 @@ def reservation_manage(reference_code):
                 f"{app.config['APP_URL']}/admin/scan/{reservation.reference_code}")
             _settings = AppSettings.query.first()
             send_confirmation_email(app.config, reservation, event, ref_qr_base64,
-                                    settings=_settings)
+                                    settings=_settings, lang=get_lang())
             log_reservation(reservation.id, 'email_sent',
                             notes=f'Updated confirmation sent to {reservation.email}')
             db.session.commit()
@@ -287,9 +349,26 @@ def embed_business(slug):
     return render_template('embed_business.html', business=business, events=events)
 
 
+@app.route('/b/<slug>/flyer')
+def business_flyer(slug):
+    """Standalone event listing page for embedding on external websites."""
+    business = Business.query.filter_by(slug=slug, is_active=True).first_or_404()
+    events = Event.query.filter(
+        Event.business_id == business.id,
+        Event.is_active == True,
+        Event.start_time >= datetime.utcnow()
+    ).order_by(Event.start_time).all()
+    return render_template('business_flyer.html', business=business, events=events)
+
+
 # ---------------------------------------------------------------------------
 # Admin — authentication
 # ---------------------------------------------------------------------------
+
+@app.route('/login')
+def login_redirect():
+    return redirect(url_for('admin_login'))
+
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -414,7 +493,6 @@ def admin_business_new():
             phone=request.form.get('phone', '').strip(),
             email=request.form.get('email', '').strip(),
             website=request.form.get('website', '').strip(),
-            google_calendar_id=request.form.get('google_calendar_id', '').strip(),
             description=request.form.get('description', '').strip(),
         )
 
@@ -445,7 +523,6 @@ def admin_business_edit(biz_id):
         business.phone = request.form.get('phone', '').strip()
         business.email = request.form.get('email', '').strip()
         business.website = request.form.get('website', '').strip()
-        business.google_calendar_id = request.form.get('google_calendar_id', '').strip()
         business.description = request.form.get('description', '').strip()
         business.is_active = 'is_active' in request.form
 
@@ -491,17 +568,27 @@ def admin_user_new():
             if role not in ('event_manager', 'event_security', 'cashier'):
                 role = 'event_manager'
 
+        form_data = {
+            'name': name,
+            'phone': request.form.get('phone', '').strip(),
+            'role': role,
+            'business_ids': request.form.getlist('business_ids'),
+            'event_ids': request.form.getlist('event_ids'),
+        }
+        businesses = Business.query.filter_by(is_active=True).all()
+        events = current_user.get_accessible_events()
+
         if not email or not name or not password:
             flash('Email, name and password are required.', 'error')
-            return render_template('admin/user_form.html', user=None, businesses=Business.query.filter_by(is_active=True).all())
+            return render_template('admin/user_form.html', user=None, businesses=businesses, events=events, form_data=form_data)
 
         if not re.match(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$', email):
             flash('Please enter a valid email address.', 'error')
-            return render_template('admin/user_form.html', user=None, businesses=Business.query.filter_by(is_active=True).all())
+            return render_template('admin/user_form.html', user=None, businesses=businesses, events=events, form_data=form_data)
 
         if Admin.query.filter(Admin.username.ilike(email)).first():
             flash('A user with that email already exists.', 'error')
-            return render_template('admin/user_form.html', user=None, businesses=Business.query.filter_by(is_active=True).all())
+            return render_template('admin/user_form.html', user=None, businesses=businesses, events=events, form_data=form_data)
 
         admin = Admin(
             username=email,
@@ -519,13 +606,20 @@ def admin_user_new():
                 if biz:
                     admin.businesses.append(biz)
 
+        if role in ('event_manager', 'event_security'):
+            for eid in request.form.getlist('event_ids'):
+                event = db.session.get(Event, int(eid))
+                if event:
+                    admin.managed_events.append(event)
+
         db.session.add(admin)
         db.session.commit()
         flash(f'User "{name}" created.', 'success')
         return redirect(url_for('admin_users'))
 
     businesses = Business.query.filter_by(is_active=True).all()
-    return render_template('admin/user_form.html', user=None, businesses=businesses)
+    events = current_user.get_accessible_events()
+    return render_template('admin/user_form.html', user=None, businesses=businesses, events=events)
 
 
 @app.route('/admin/users/<int:user_id>', methods=['GET', 'POST'])
@@ -552,6 +646,12 @@ def admin_user_edit(user_id):
                 biz = db.session.get(Business, int(bid))
                 if biz:
                     user.businesses.append(biz)
+        if user.role in ('event_manager', 'event_security'):
+            user.managed_events.clear()
+            for eid in request.form.getlist('event_ids'):
+                event = db.session.get(Event, int(eid))
+                if event:
+                    user.managed_events.append(event)
 
         new_password = request.form.get('password', '').strip()
         if new_password:
@@ -562,7 +662,8 @@ def admin_user_edit(user_id):
         return redirect(url_for('admin_users'))
 
     businesses = Business.query.filter_by(is_active=True).all()
-    return render_template('admin/user_form.html', user=user, businesses=businesses)
+    events = current_user.get_accessible_events()
+    return render_template('admin/user_form.html', user=user, businesses=businesses, events=events)
 
 
 # ---------------------------------------------------------------------------
@@ -649,51 +750,6 @@ def admin_event_new():
     return render_template('admin/event_form.html', businesses=businesses)
 
 
-@app.route('/admin/events/sync')
-@owner_or_above
-def admin_sync_events():
-    """Sync events from Google Calendar for accessible businesses."""
-    businesses = current_user.get_accessible_businesses()
-    total_synced = 0
-
-    for business in businesses:
-        if not business.google_calendar_id:
-            continue
-        try:
-            gcal_events = fetch_upcoming_events(
-                app.config['GOOGLE_CREDENTIALS_FILE'],
-                business.google_calendar_id)
-
-            for ge in gcal_events:
-                existing = Event.query.filter_by(gcal_event_id=ge['gcal_event_id']).first()
-                if existing:
-                    existing.title = ge['title']
-                    existing.start_time = ge['start_time']
-                    existing.end_time = ge['end_time']
-                    existing.location = ge['location']
-                    existing.description = ge['description']
-                else:
-                    event = Event(
-                        business_id=business.id,
-                        gcal_event_id=ge['gcal_event_id'],
-                        event_code=generate_event_code(),
-                        title=ge['title'],
-                        start_time=ge['start_time'],
-                        end_time=ge['end_time'],
-                        location=ge['location'],
-                        description=ge['description'],
-                        is_active=True
-                    )
-                    db.session.add(event)
-                    total_synced += 1
-
-            db.session.commit()
-        except Exception as e:
-            flash(f'Sync failed for {business.name}: {e}', 'error')
-
-    flash(f'Calendar sync complete — {total_synced} new event(s) added.', 'success')
-    return redirect(url_for('admin_events'))
-
 
 @app.route('/admin/events/<int:event_id>', methods=['GET', 'POST'])
 @login_required
@@ -744,17 +800,11 @@ def admin_event_detail(event_id):
         event.dress_code = request.form.get('dress_code', '').strip()
         event.is_active = 'is_active' in request.form
 
-        poster = request.files.get('poster')
-        if poster and poster.filename and allowed_file(poster.filename):
-            filename = secure_filename(f"event_{event.id}_{poster.filename}")
-            poster.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            event.poster_filename = filename
-
-        terms = request.files.get('terms')
-        if terms and terms.filename and terms.filename.lower().endswith('.pdf'):
-            filename = secure_filename(f"terms_{event.id}_{terms.filename}")
-            terms.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            event.terms_filename = filename
+        for lang_code, _ in SUPPORTED_LANGUAGES:
+            _save_event_file(request.files.get(f'poster_{lang_code}'),
+                             event.event_code, 'poster', lang_code)
+            _save_event_file(request.files.get(f'terms_{lang_code}'),
+                             event.event_code, 'terms', lang_code)
 
         if current_user.role_exact in ('global_admin', 'owner'):
             event.managers.clear()
@@ -1019,6 +1069,32 @@ def admin_reports():
     return render_template('admin/reports.html', report_data=report_data)
 
 
+@app.route('/admin/reports/event/<int:event_id>/reservations')
+@login_required
+def admin_report_reservations(event_id):
+    event = db.session.get(Event, event_id)
+    if not event or not current_user.can_access_event(event):
+        abort(403)
+    status_filter = request.args.get('status', '')
+    query = Reservation.query.filter_by(event_id=event.id)
+    if status_filter:
+        query = query.filter_by(status=status_filter)
+    reservations = query.order_by(Reservation.name).all()
+    return render_template('admin/report_reservations.html',
+                           event=event, reservations=reservations,
+                           status_filter=status_filter, now=datetime.utcnow())
+
+
+@app.route('/admin/reports/reservation/<int:res_id>')
+@login_required
+def admin_report_booking(res_id):
+    reservation = db.session.get(Reservation, res_id)
+    if not reservation or not current_user.can_access_event(reservation.event):
+        abort(403)
+    return render_template('admin/report_booking.html',
+                           reservation=reservation, event=reservation.event)
+
+
 # ---------------------------------------------------------------------------
 # Admin — maintenance mode (global admin only)
 # ---------------------------------------------------------------------------
@@ -1081,6 +1157,17 @@ def admin_settings():
             settings.smtp_password = smtp_password
         settings.smtp_from_name = smtp_from_name
 
+        icon = request.files.get('app_icon')
+        if icon and icon.filename and allowed_file(icon.filename):
+            icons_dir = os.path.join(app.static_folder, 'icons')
+            os.makedirs(icons_dir, exist_ok=True)
+            img = Image.open(icon).convert('RGBA')
+            for size in [192, 512]:
+                resized = img.resize((size, size), Image.LANCZOS)
+                bg = Image.new('RGB', (size, size), '#0d0d0d')
+                bg.paste(resized, mask=resized.split()[3])
+                bg.save(os.path.join(icons_dir, f'icon-{size}.png'))
+
         db.session.commit()
 
         if settings.smtp_email:
@@ -1091,7 +1178,9 @@ def admin_settings():
         flash('Settings saved.', 'success')
         return redirect(url_for('admin_dashboard'))
 
-    return render_template('admin/settings.html', settings=settings)
+    icon_exists = os.path.exists(os.path.join(app.static_folder, 'icons', 'icon-192.png'))
+    return render_template('admin/settings.html', settings=settings,
+                           icon_exists=icon_exists, now=int(datetime.utcnow().timestamp()))
 
 
 # ---------------------------------------------------------------------------
@@ -1109,12 +1198,18 @@ def init_db():
                 conn.execute(db.text("ALTER TABLE admins ADD COLUMN reset_token_expires DATETIME"))
                 conn.commit()
             event_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(events)"))]
+            if 'end_time_text' not in event_cols:
+                conn.execute(db.text("ALTER TABLE events ADD COLUMN end_time_text VARCHAR(100)"))
+                conn.commit()
             if 'terms_filename' not in event_cols:
                 conn.execute(db.text("ALTER TABLE events ADD COLUMN terms_filename VARCHAR(256)"))
                 conn.commit()
             res_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(reservations)"))]
             if 'is_comp' not in res_cols:
                 conn.execute(db.text("ALTER TABLE reservations ADD COLUMN is_comp BOOLEAN DEFAULT 0"))
+                conn.commit()
+            if 'lang' not in res_cols:
+                conn.execute(db.text("ALTER TABLE reservations ADD COLUMN lang VARCHAR(2) DEFAULT 'en'"))
                 conn.commit()
             ev_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(events)"))]
             if 'event_code' not in ev_cols:
@@ -1142,7 +1237,8 @@ def init_db():
             app.config['SMTP_PASSWORD'] = settings.smtp_password
 
 
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+init_db()
+
 if __name__ == '__main__':
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    init_db()
     app.run(debug=True, host='0.0.0.0', port=5000)

@@ -3,9 +3,9 @@
 {% block content %}
 <p class="section-title">Users</p>
 
-<div style="margin-bottom: 16px; display: flex; gap: 10px;">
-    <a href="{{ url_for('admin_user_new') }}" class="btn btn-primary btn-sm">Add User</a>
-    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-surface btn-sm">Back to Dashboard</a>
+<div class="btn-row" style="margin-bottom: 16px;">
+    <a href="{{ url_for('admin_user_new') }}" class="btn btn-primary" style="flex: 1;">Add User</a>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-back" style="flex: 1;">Back</a>
 </div>
 
 {% for user in users %}
@@ -19,8 +19,7 @@
         <span class="card-chevron">&rsaquo;</span>
     </div>
     <div class="card-body">
-        <p style="font-size: 0.85rem; color: var(--text2);">{{ user.username }}</p>
-        {% if user.email %}<p style="font-size: 0.85rem; color: var(--text3);">{{ user.email }}</p>{% endif %}
+        {% if user.email %}<p style="font-size: 0.85rem; color: var(--text2);">{{ user.email }}</p>{% endif %}
         {% if user.role_exact == 'owner' %}
         <p style="font-size: 0.8rem; color: var(--text3); margin-top: 4px;">
             Businesses: {{ user.businesses | map(attribute='name') | join(', ') or 'None assigned' }}
@@ -32,7 +31,7 @@
         </p>
         {% endif %}
         <div class="btn-row">
-            <a href="{{ url_for('admin_user_edit', user_id=user.id) }}" class="btn btn-surface btn-sm">Edit</a>
+            <a href="{{ url_for('admin_user_edit', user_id=user.id) }}" class="btn btn-surface" style="flex: 1;">Edit</a>
         </div>
     </div>
 </div>
