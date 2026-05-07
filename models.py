@@ -163,7 +163,7 @@ class Event(db.Model):
 
     @property
     def is_past(self):
-        return self.start_time < datetime.now(timezone.utc)
+        return self.start_time < datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Reservation(db.Model):
