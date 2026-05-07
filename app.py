@@ -1308,6 +1308,14 @@ def stripe_success():
                     reservation.paid_at = datetime.now(timezone.utc).replace(tzinfo=None)
                     log_reservation(reservation.id, 'paid', notes='Stripe online payment')
                     db.session.commit()
+                    ref_qr_base64 = generate_reference_qr_base64(
+                        f"{app.config['APP_URL']}/admin/scan/{reservation.reference_code}")
+                    email_sent = send_confirmation_email(app.config, reservation, event,
+                                                        ref_qr_base64, settings=settings)
+                    if email_sent:
+                        log_reservation(reservation.id, 'email_sent',
+                                        notes=f'Confirmation sent to {reservation.email}')
+                        db.session.commit()
             except Exception:
                 pass
 
