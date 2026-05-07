@@ -21,7 +21,7 @@ def _promo_name(settings=None):
     return 'VIP Promotions'
 
 
-def send_confirmation_email(config, reservation, event, qr_base64=None, settings=None, lang='en'):
+def send_confirmation_email(config, reservation, event, qr_base64=None, settings=None, lang='en', paid=False):
     if not config.get('SMTP_EMAIL') or not config.get('SMTP_PASSWORD'):
         return False
 
@@ -39,18 +39,24 @@ def send_confirmation_email(config, reservation, event, qr_base64=None, settings
     manage_url = f"{app_url}/reservation/{reservation.reference_code}"
     promo_name = _promo_name(settings)
 
+    show_qr_text = e['show_qr_paid'] if paid else e['show_qr']
     qr_html = ''
     if qr_base64:
         qr_html = f'''
         <div style="text-align:center;margin:24px 0 8px;">
-            <p style="color:#555555;font-size:0.8rem;margin-bottom:10px;">{e['show_qr']}</p>
+            <p style="color:#555555;font-size:0.8rem;margin-bottom:10px;">{show_qr_text}</p>
             <img src="data:image/png;base64,{qr_base64}" alt="QR Code"
                  style="width:160px;height:160px;border:1px solid #dddddd;border-radius:8px;display:block;margin:0 auto;">
         </div>'''
 
     location_row = f"<tr><td style='padding:7px 0;color:#777777;font-size:0.85rem;'>{e['label_where']}</td><td style='padding:7px 0;font-size:0.85rem;'>{event.location}</td></tr>" if event.location else ''
     total_row = f"<tr><td style='padding:7px 0;color:#777777;font-size:0.85rem;'>{e['label_total']}</td><td style='padding:7px 0;font-size:0.85rem;font-weight:600;color:#1a8f3f;'>&euro;{total_fmt}</td></tr>" if total > 0 else ''
-    payment_note = f"<p style='font-size:0.8rem;color:#777777;margin-top:12px;'>{e['payment_note'].format(business=business.name)}</p>" if event.price and event.price > 0 else ''
+    if paid:
+        payment_note = f"<p style='font-size:0.8rem;color:#777777;margin-top:12px;'>{e['payment_note_paid']}</p>" if event.price and event.price > 0 else ''
+    else:
+        payment_note = f"<p style='font-size:0.8rem;color:#777777;margin-top:12px;'>{e['payment_note'].format(business=business.name)}</p>" if event.price and event.price > 0 else ''
+    arrive_note = '' if paid else f"<p style='font-size:0.8rem;color:#777777;margin-top:10px;'>{e['arrive_note']}</p>"
+    heading = e['heading_paid'] if paid else e['heading_confirmed']
 
     html = f"""
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden;">
@@ -58,7 +64,7 @@ def send_confirmation_email(config, reservation, event, qr_base64=None, settings
             <span style="font-size:1.1rem;font-weight:700;color:#0a84ff;">{promo_name}</span>
         </div>
         <div style="padding:24px;">
-            <h2 style="margin:0 0 4px;font-size:1.05rem;color:#1a1a1a;">{e['heading_confirmed']}</h2>
+            <h2 style="margin:0 0 4px;font-size:1.05rem;color:#1a1a1a;">{heading}</h2>
             <p style="color:#777777;font-size:0.85rem;margin:0 0 16px;">{e['your_reference']}</p>
             <div style="text-align:center;background:#f5f5f5;border-radius:8px;padding:14px;margin-bottom:20px;">
                 <span style="font-size:2rem;font-weight:700;color:#0a84ff;letter-spacing:3px;">{reservation.reference_code}</span>
@@ -73,7 +79,7 @@ def send_confirmation_email(config, reservation, event, qr_base64=None, settings
             </table>
             {qr_html}
             {payment_note}
-            <p style="font-size:0.8rem;color:#777777;margin-top:10px;">{e['arrive_note']}</p>
+            {arrive_note}
             <div style="text-align:center;margin-top:20px;">
                 <a href="{manage_url}" style="display:inline-block;background:#f5f5f5;color:#0a84ff;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:0.85rem;border:1px solid #e0e0e0;">{e['modify_link']}</a>
             </div>
@@ -85,7 +91,8 @@ def send_confirmation_email(config, reservation, event, qr_base64=None, settings
     """
 
     msg = MIMEMultipart('alternative')
-    msg['Subject'] = e['subject_confirmed'].format(event=event.title, ref=reservation.reference_code)
+    subject_key = 'subject_paid' if paid else 'subject_confirmed'
+    msg['Subject'] = e[subject_key].format(event=event.title, ref=reservation.reference_code)
     msg['From'] = _from_header(config, settings)
     msg['To'] = reservation.email
     msg.attach(MIMEText(html, 'html'))

@@ -1311,7 +1311,7 @@ def stripe_success():
                     ref_qr_base64 = generate_reference_qr_base64(
                         f"{app.config['APP_URL']}/admin/scan/{reservation.reference_code}")
                     email_sent = send_confirmation_email(app.config, reservation, event,
-                                                        ref_qr_base64, settings=settings)
+                                                        ref_qr_base64, settings=settings, paid=True)
                     if email_sent:
                         log_reservation(reservation.id, 'email_sent',
                                         notes=f'Confirmation sent to {reservation.email}')
