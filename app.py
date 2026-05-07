@@ -7,7 +7,7 @@ from PIL import Image
 import uuid
 import stripe
 from functools import wraps
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import (Flask, render_template, request, redirect, url_for,
                    flash, send_from_directory, abort, jsonify, Response)
 from flask_login import (LoginManager, login_user, logout_user,
@@ -206,7 +206,7 @@ def business_events(slug):
     events = Event.query.filter(
         Event.business_id == business.id,
         Event.is_active == True,
-        Event.start_time >= datetime.utcnow()
+        Event.start_time >= datetime.now(timezone.utc)
     ).order_by(Event.start_time).all()
     return render_template('business_events.html', business=business, events=events)
 
@@ -385,7 +385,7 @@ def embed_business(slug):
         events = Event.query.filter(
             Event.business_id == business.id,
             Event.is_active == True,
-            Event.start_time >= datetime.utcnow()
+            Event.start_time >= datetime.now(timezone.utc)
         ).order_by(Event.start_time).all()
     return render_template('embed_business.html', business=business, events=events)
 
@@ -397,7 +397,7 @@ def business_flyer(slug):
     events = Event.query.filter(
         Event.business_id == business.id,
         Event.is_active == True,
-        Event.start_time >= datetime.utcnow()
+        Event.start_time >= datetime.now(timezone.utc)
     ).order_by(Event.start_time).all()
     return render_template('business_flyer.html', business=business, events=events)
 
@@ -447,7 +447,7 @@ def admin_forgot_password():
         if admin and admin.is_active_admin:
             token = uuid.uuid4().hex
             admin.reset_token = token
-            admin.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
+            admin.reset_token_expires = datetime.now(timezone.utc) + timedelta(hours=1)
             db.session.commit()
             reset_url = f"{app.config['APP_URL']}/admin/reset-password/{token}"
             send_password_reset_email(app.config, email, reset_url)
@@ -459,7 +459,7 @@ def admin_forgot_password():
 @app.route('/admin/reset-password/<token>', methods=['GET', 'POST'])
 def admin_reset_password(token):
     admin = Admin.query.filter_by(reset_token=token).first()
-    if not admin or not admin.reset_token_expires or admin.reset_token_expires < datetime.utcnow():
+    if not admin or not admin.reset_token_expires or admin.reset_token_expires < datetime.now(timezone.utc):
         flash('This reset link is invalid or has expired.', 'error')
         return redirect(url_for('admin_login'))
 
@@ -942,7 +942,7 @@ def admin_update_reservation(res_id):
     if new_status in ('pending', 'paid', 'cancelled'):
         reservation.status = new_status
         if new_status == 'paid':
-            reservation.paid_at = datetime.utcnow()
+            reservation.paid_at = datetime.now(timezone.utc)
             reservation.paid_to_admin_id = current_user.id
         log_reservation(reservation.id, new_status, admin_id=current_user.id)
         db.session.commit()
@@ -1039,7 +1039,7 @@ def admin_scan_pay(reference_code):
         abort(403)
     if reservation.status == 'pending':
         reservation.status = 'paid'
-        reservation.paid_at = datetime.utcnow()
+        reservation.paid_at = datetime.now(timezone.utc)
         reservation.paid_to_admin_id = current_user.id
         log_reservation(reservation.id, 'paid', admin_id=current_user.id)
         db.session.commit()
@@ -1073,7 +1073,7 @@ def admin_scan_comp(reference_code):
     if reservation.status == 'pending':
         reservation.status = 'paid'
         reservation.is_comp = True
-        reservation.paid_at = datetime.utcnow()
+        reservation.paid_at = datetime.now(timezone.utc)
         reservation.paid_to_admin_id = current_user.id
         log_reservation(reservation.id, 'comp', admin_id=current_user.id,
                         notes='Complimentary — 0€')
@@ -1125,7 +1125,7 @@ def admin_report_reservations(event_id):
     reservations = query.order_by(Reservation.name).all()
     return render_template('admin/report_reservations.html',
                            event=event, reservations=reservations,
-                           status_filter=status_filter, now=datetime.utcnow())
+                           status_filter=status_filter, now=datetime.now(timezone.utc))
 
 
 @app.route('/admin/reports/reservation/<int:res_id>')
@@ -1233,7 +1233,7 @@ def admin_settings():
 
     icon_exists = os.path.exists(os.path.join(app.static_folder, 'icons', 'icon-192.png'))
     return render_template('admin/settings.html', settings=settings,
-                           icon_exists=icon_exists, now=int(datetime.utcnow().timestamp()))
+                           icon_exists=icon_exists, now=int(datetime.now(timezone.utc).timestamp()))
 
 
 # ---------------------------------------------------------------------------
@@ -1305,7 +1305,7 @@ def stripe_success():
                 cs = stripe.checkout.Session.retrieve(session_id)
                 if cs.payment_status == 'paid':
                     reservation.status = 'paid'
-                    reservation.paid_at = datetime.utcnow()
+                    reservation.paid_at = datetime.now(timezone.utc)
                     log_reservation(reservation.id, 'paid', notes='Stripe online payment')
                     db.session.commit()
             except Exception:
@@ -1348,7 +1348,7 @@ def stripe_webhook():
             reservation = Reservation.query.filter_by(reference_code=ref).first()
             if reservation and reservation.status == 'pending':
                 reservation.status = 'paid'
-                reservation.paid_at = datetime.utcnow()
+                reservation.paid_at = datetime.now(timezone.utc)
                 log_reservation(reservation.id, 'paid', notes='Stripe webhook confirmation')
                 db.session.commit()
 
