@@ -79,6 +79,14 @@
             <label for="dress_code">Dress code</label>
             <input type="text" id="dress_code" name="dress_code" placeholder="e.g. Dress to Impress">
         </div>
+        <div class="field-row">
+            <label for="payment_mode">Payment</label>
+            <select id="payment_mode" name="payment_mode">
+                <option value="cash" selected>Cash only</option>
+                <option value="stripe">Online only (Stripe)</option>
+                <option value="both">Cash or Online</option>
+            </select>
+        </div>
     </div>
 
     <div class="field-group">

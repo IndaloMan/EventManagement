@@ -72,6 +72,7 @@ TRANSLATIONS = {
         'terms_link': 'Terms & Conditions',
         'payment_note': 'Payment is made at the {business} bar. This form reserves your place.',
         'btn_confirm': 'Confirm Reservation',
+        'btn_pay_online': 'Reserve & Pay Online',
         'btn_cancel': 'Cancel',
 
         # Confirmation page
@@ -146,6 +147,7 @@ TRANSLATIONS = {
         'terms_link': 'Términos y Condiciones',
         'payment_note': 'El pago se realiza en la barra de {business}. Este formulario reserva tu lugar.',
         'btn_confirm': 'Confirmar Reserva',
+        'btn_pay_online': 'Reservar y Pagar Online',
         'btn_cancel': 'Cancelar',
 
         # Confirmation page

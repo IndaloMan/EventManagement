@@ -5,6 +5,7 @@ import os
 import re
 from PIL import Image
 import uuid
+import stripe
 from functools import wraps
 from datetime import datetime, timedelta
 from flask import (Flask, render_template, request, redirect, url_for,
@@ -28,7 +29,8 @@ login_manager.login_view = 'admin_login'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'}
 
 PUBLIC_ROUTES = ('index', 'business_events', 'business_flyer', 'reserve', 'reservation_manage',
-                 'embed_event', 'embed_business', 'static', 'manifest_json', 'login_redirect')
+                 'embed_event', 'embed_business', 'static', 'manifest_json', 'login_redirect',
+                 'stripe_checkout', 'stripe_success', 'stripe_cancel', 'stripe_webhook')
 
 
 def get_lang():
@@ -255,6 +257,45 @@ def reserve(event_id):
         db.session.flush()
         log_reservation(reservation.id, 'reserved',
                         notes=f'{reservation.name}, {reservation.num_tickets} ticket(s)')
+
+        payment_choice = request.form.get('payment_choice', 'online')
+        use_stripe = (
+            event.price > 0 and
+            event.payment_mode in ('stripe', 'both') and
+            (event.payment_mode == 'stripe' or payment_choice == 'online')
+        )
+
+        if use_stripe:
+            settings = AppSettings.query.first()
+            if settings and settings.stripe_secret_key:
+                stripe.api_key = settings.stripe_secret_key
+                try:
+                    ticket_label = 'ticket' if reservation.num_tickets == 1 else 'tickets'
+                    checkout_session = stripe.checkout.Session.create(
+                        payment_method_types=['card'],
+                        line_items=[{
+                            'price_data': {
+                                'currency': 'eur',
+                                'product_data': {
+                                    'name': f'{event.title} — {reservation.num_tickets} {ticket_label}',
+                                },
+                                'unit_amount': int(event.price * 100),
+                            },
+                            'quantity': reservation.num_tickets,
+                        }],
+                        mode='payment',
+                        success_url=f"{app.config['APP_URL']}/stripe/success?ref={reservation.reference_code}&session_id={{CHECKOUT_SESSION_ID}}",
+                        cancel_url=f"{app.config['APP_URL']}/stripe/cancel?ref={reservation.reference_code}",
+                        metadata={'reference_code': reservation.reference_code},
+                        customer_email=reservation.email,
+                    )
+                    reservation.stripe_payment_intent_id = checkout_session.payment_intent
+                    db.session.commit()
+                    return redirect(checkout_session.url, code=303)
+                except Exception as e:
+                    flash(f'Payment setup failed: {e}', 'error')
+                    db.session.commit()
+                    return render_template('reserve.html', event=event)
 
         ref_qr_base64 = generate_reference_qr_base64(
             f"{app.config['APP_URL']}/admin/scan/{reservation.reference_code}")
@@ -725,6 +766,7 @@ def admin_event_new():
             max_capacity=int(request.form.get('max_capacity', 0) or 0),
             includes=request.form.get('includes', '').strip(),
             dress_code=request.form.get('dress_code', '').strip(),
+            payment_mode=request.form.get('payment_mode', 'cash'),
             is_active=True,
         )
 
@@ -798,6 +840,7 @@ def admin_event_detail(event_id):
         event.max_capacity = int(request.form.get('max_capacity', 0) or 0)
         event.includes = request.form.get('includes', '').strip()
         event.dress_code = request.form.get('dress_code', '').strip()
+        event.payment_mode = request.form.get('payment_mode', 'cash')
         event.is_active = 'is_active' in request.form
 
         for lang_code, _ in SUPPORTED_LANGUAGES:
@@ -1168,6 +1211,16 @@ def admin_settings():
                 bg.paste(resized, mask=resized.split()[3])
                 bg.save(os.path.join(icons_dir, f'icon-{size}.png'))
 
+        stripe_publishable_key = request.form.get('stripe_publishable_key', '').strip()
+        stripe_secret_key = request.form.get('stripe_secret_key', '').strip()
+        stripe_webhook_secret = request.form.get('stripe_webhook_secret', '').strip()
+        if stripe_publishable_key:
+            settings.stripe_publishable_key = stripe_publishable_key
+        if stripe_secret_key:
+            settings.stripe_secret_key = stripe_secret_key
+        if stripe_webhook_secret:
+            settings.stripe_webhook_secret = stripe_webhook_secret
+
         db.session.commit()
 
         if settings.smtp_email:
@@ -1181,6 +1234,125 @@ def admin_settings():
     icon_exists = os.path.exists(os.path.join(app.static_folder, 'icons', 'icon-192.png'))
     return render_template('admin/settings.html', settings=settings,
                            icon_exists=icon_exists, now=int(datetime.utcnow().timestamp()))
+
+
+# ---------------------------------------------------------------------------
+# Stripe payment routes
+# ---------------------------------------------------------------------------
+
+def _create_stripe_session(reservation, event, settings):
+    """Create a Stripe Checkout Session for the given reservation."""
+    stripe.api_key = settings.stripe_secret_key
+    ticket_label = 'ticket' if reservation.num_tickets == 1 else 'tickets'
+    session = stripe.checkout.Session.create(
+        payment_method_types=['card'],
+        line_items=[{
+            'price_data': {
+                'currency': 'eur',
+                'product_data': {
+                    'name': f'{event.title} — {reservation.num_tickets} {ticket_label}',
+                },
+                'unit_amount': int(event.price * 100),
+            },
+            'quantity': reservation.num_tickets,
+        }],
+        mode='payment',
+        success_url=f"{app.config['APP_URL']}/stripe/success?ref={reservation.reference_code}&session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{app.config['APP_URL']}/stripe/cancel?ref={reservation.reference_code}",
+        metadata={'reference_code': reservation.reference_code},
+        customer_email=reservation.email,
+    )
+    return session
+
+
+@app.route('/stripe/checkout/<reference_code>', methods=['POST'])
+def stripe_checkout(reference_code):
+    """Retry Stripe checkout for an existing pending reservation."""
+    reservation = Reservation.query.filter_by(reference_code=reference_code.upper()).first_or_404()
+    event = reservation.event
+
+    if reservation.status != 'pending':
+        flash('This reservation cannot be paid online.', 'error')
+        return redirect(url_for('reservation_manage', reference_code=reservation.reference_code))
+
+    settings = AppSettings.query.first()
+    if not settings or not settings.stripe_secret_key:
+        flash('Online payment is not available.', 'error')
+        return redirect(url_for('reservation_manage', reference_code=reservation.reference_code))
+
+    try:
+        session = _create_stripe_session(reservation, event, settings)
+        reservation.stripe_payment_intent_id = session.payment_intent
+        db.session.commit()
+        return redirect(session.url, code=303)
+    except Exception as e:
+        flash(f'Payment setup failed: {e}', 'error')
+        return redirect(url_for('reservation_manage', reference_code=reservation.reference_code))
+
+
+@app.route('/stripe/success')
+def stripe_success():
+    ref = request.args.get('ref', '').upper()
+    session_id = request.args.get('session_id', '')
+    reservation = Reservation.query.filter_by(reference_code=ref).first_or_404()
+    event = reservation.event
+
+    if reservation.status == 'pending' and session_id:
+        settings = AppSettings.query.first()
+        if settings and settings.stripe_secret_key:
+            stripe.api_key = settings.stripe_secret_key
+            try:
+                cs = stripe.checkout.Session.retrieve(session_id)
+                if cs.payment_status == 'paid':
+                    reservation.status = 'paid'
+                    reservation.paid_at = datetime.utcnow()
+                    log_reservation(reservation.id, 'paid', notes='Stripe online payment')
+                    db.session.commit()
+            except Exception:
+                pass
+
+    return render_template('stripe_success.html', reservation=reservation, event=event)
+
+
+@app.route('/stripe/cancel')
+def stripe_cancel():
+    ref = request.args.get('ref', '').upper()
+    reservation = Reservation.query.filter_by(reference_code=ref).first_or_404()
+    event = reservation.event
+    return render_template('stripe_cancel.html', reservation=reservation, event=event)
+
+
+@app.route('/stripe/webhook', methods=['POST'])
+def stripe_webhook():
+    settings = AppSettings.query.first()
+    if not settings or not settings.stripe_secret_key:
+        return '', 400
+
+    stripe.api_key = settings.stripe_secret_key
+    payload = request.get_data()
+    sig_header = request.headers.get('Stripe-Signature', '')
+
+    if settings.stripe_webhook_secret:
+        try:
+            event_obj = stripe.Webhook.construct_event(payload, sig_header, settings.stripe_webhook_secret)
+        except (ValueError, stripe.error.SignatureVerificationError):
+            return '', 400
+    else:
+        import json as _json
+        event_obj = _json.loads(payload)
+
+    if event_obj['type'] == 'checkout.session.completed':
+        cs = event_obj['data']['object']
+        ref = (cs.get('metadata') or {}).get('reference_code', '')
+        if ref:
+            reservation = Reservation.query.filter_by(reference_code=ref).first()
+            if reservation and reservation.status == 'pending':
+                reservation.status = 'paid'
+                reservation.paid_at = datetime.utcnow()
+                log_reservation(reservation.id, 'paid', notes='Stripe webhook confirmation')
+                db.session.commit()
+
+    return '', 200
 
 
 # ---------------------------------------------------------------------------
@@ -1214,6 +1386,19 @@ def init_db():
             ev_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(events)"))]
             if 'event_code' not in ev_cols:
                 conn.execute(db.text("ALTER TABLE events ADD COLUMN event_code VARCHAR(6)"))
+                conn.commit()
+            if 'payment_mode' not in ev_cols:
+                conn.execute(db.text("ALTER TABLE events ADD COLUMN payment_mode VARCHAR(10) DEFAULT 'cash'"))
+                conn.commit()
+            res_cols2 = [r[1] for r in conn.execute(db.text("PRAGMA table_info(reservations)"))]
+            if 'stripe_payment_intent_id' not in res_cols2:
+                conn.execute(db.text("ALTER TABLE reservations ADD COLUMN stripe_payment_intent_id VARCHAR(256)"))
+                conn.commit()
+            settings_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(app_settings)"))]
+            if 'stripe_publishable_key' not in settings_cols:
+                conn.execute(db.text("ALTER TABLE app_settings ADD COLUMN stripe_publishable_key VARCHAR(256)"))
+                conn.execute(db.text("ALTER TABLE app_settings ADD COLUMN stripe_secret_key VARCHAR(256)"))
+                conn.execute(db.text("ALTER TABLE app_settings ADD COLUMN stripe_webhook_secret VARCHAR(256)"))
                 conn.commit()
         for ev in Event.query.filter(Event.event_code == None).all():
             ev.event_code = generate_event_code()

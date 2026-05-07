@@ -140,6 +140,7 @@ class Event(db.Model):
     poster_filename = db.Column(db.String(256))
     terms_filename = db.Column(db.String(256))
     is_active = db.Column(db.Boolean, default=True)
+    payment_mode = db.Column(db.String(10), default='cash')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     reservations = db.relationship('Reservation', backref='event', lazy=True)
@@ -178,6 +179,7 @@ class Reservation(db.Model):
     lang = db.Column(db.String(2), default='en')
     is_comp = db.Column(db.Boolean, default=False)
     notes = db.Column(db.Text)
+    stripe_payment_intent_id = db.Column(db.String(256))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     paid_at = db.Column(db.DateTime)
@@ -200,6 +202,9 @@ class AppSettings(db.Model):
     smtp_email = db.Column(db.String(120))
     smtp_password = db.Column(db.String(256))
     smtp_from_name = db.Column(db.String(100))
+    stripe_publishable_key = db.Column(db.String(256))
+    stripe_secret_key = db.Column(db.String(256))
+    stripe_webhook_secret = db.Column(db.String(256))
 
 
 class Maintenance(db.Model):

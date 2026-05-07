@@ -71,13 +71,35 @@
     {% endif %}
 
     {% if event.price > 0 %}
+    {% if event.payment_mode == 'cash' or not event.payment_mode %}
     <p style="font-size: 0.8rem; color: var(--text3); text-align: center; margin-bottom: 12px;">
         {{ t.payment_note.format(business=event.business.name) }}
     </p>
+    {% elif event.payment_mode == 'stripe' %}
+    <p style="font-size: 0.8rem; color: var(--text3); text-align: center; margin-bottom: 12px;">
+        You'll be taken to our secure payment page after confirming.
+    </p>
+    {% elif event.payment_mode == 'both' %}
+    <div class="field-group">
+        <p class="field-group-label">Payment Method</p>
+        <div class="field-row" style="cursor: pointer;" onclick="document.getElementById('pay_online').checked=true;">
+            <label for="pay_online" style="cursor: pointer;">Pay online now (card)</label>
+            <input type="radio" id="pay_online" name="payment_choice" value="online" checked style="width: 20px; height: 20px;">
+        </div>
+        <div class="field-row" style="cursor: pointer;" onclick="document.getElementById('pay_cash').checked=true;">
+            <label for="pay_cash" style="cursor: pointer;">Pay at the {{ event.business.name }} bar</label>
+            <input type="radio" id="pay_cash" name="payment_choice" value="cash" style="width: 20px; height: 20px;">
+        </div>
+    </div>
+    {% endif %}
     {% endif %}
 
     <div class="btn-row" style="margin-top: 16px;">
+        {% if event.price > 0 and event.payment_mode == 'stripe' %}
+        <button type="submit" class="btn btn-success" style="flex: 1;">{{ t.btn_pay_online }}</button>
+        {% else %}
         <button type="submit" class="btn btn-success" style="flex: 1;">{{ t.btn_confirm }}</button>
+        {% endif %}
         <a href="{{ url_for('business_events', slug=event.business.slug) }}" class="btn btn-surface" style="flex: 1;">{{ t.btn_cancel }}</a>
     </div>
 </form>

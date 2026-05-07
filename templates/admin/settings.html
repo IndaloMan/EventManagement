@@ -63,6 +63,32 @@
         Friendly name appears in the sender field in Outlook and Gmail (e.g. "Marina Club Events &lt;email@address&gt;").
     </p>
 
+    <p class="section-title" style="margin-top: 24px;">Stripe Payments</p>
+
+    <div class="field-group">
+        <div class="field-row">
+            <label>Publishable key</label>
+            <input type="text" name="stripe_publishable_key"
+                   value="{{ settings.stripe_publishable_key or '' }}"
+                   placeholder="{{ 'Currently set' if settings.stripe_publishable_key else 'pk_test_...' }}">
+        </div>
+        <div class="field-row">
+            <label>Secret key</label>
+            <input type="password" name="stripe_secret_key"
+                   autocomplete="new-password"
+                   placeholder="{{ 'Leave blank to keep current' if settings.stripe_secret_key else 'sk_test_...' }}">
+        </div>
+        <div class="field-row">
+            <label>Webhook secret</label>
+            <input type="password" name="stripe_webhook_secret"
+                   autocomplete="new-password"
+                   placeholder="{{ 'Leave blank to keep current' if settings.stripe_webhook_secret else 'whsec_... (optional)' }}">
+        </div>
+    </div>
+    <p style="font-size: 0.78rem; color: var(--text3); margin: -8px 0 16px;">
+        Use test keys (pk_test_ / sk_test_) until ready to go live. Webhook secret is optional but recommended for production.
+    </p>
+
     <button type="submit" class="btn btn-primary" style="opacity: 0.45;" id="saveBtn">Save Settings</button>
 </form>
 

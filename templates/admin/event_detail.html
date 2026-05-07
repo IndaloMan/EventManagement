@@ -74,6 +74,14 @@
             <input type="text" id="end_time_text" name="end_time_text" value="{{ event.end_time_text or '' }}" placeholder="e.g. Til late">
         </div>
         <div class="field-row">
+            <label for="payment_mode">Payment</label>
+            <select id="payment_mode" name="payment_mode">
+                <option value="cash" {% if not event.payment_mode or event.payment_mode == 'cash' %}selected{% endif %}>Cash only</option>
+                <option value="stripe" {% if event.payment_mode == 'stripe' %}selected{% endif %}>Online only (Stripe)</option>
+                <option value="both" {% if event.payment_mode == 'both' %}selected{% endif %}>Cash or Online</option>
+            </select>
+        </div>
+        <div class="field-row">
             <label>Active</label>
             <span style="flex: 1;"></span>
             <input type="checkbox" name="is_active" {% if event.is_active %}checked{% endif %} style="width: 20px; height: 20px;">
