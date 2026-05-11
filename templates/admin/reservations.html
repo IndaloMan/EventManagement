@@ -26,6 +26,13 @@
     </form>
 </div>
 
+{% if selected_group %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 10px 14px; border: 1px solid #ff9f0a; border-radius: 10px; font-size: 0.85rem;">
+    <span style="color: #ff9f0a;">&#9733; Showing group: <strong>{{ selected_group }}</strong></span>
+    <a href="{{ url_for('admin_reservations') }}" style="color: var(--text3); text-decoration: none; font-size: 0.8rem;">Clear ✕</a>
+</div>
+{% endif %}
+
 {% if selected_event %}
 <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 16px; padding: 12px 14px; border: 1px solid #ff9f0a; border-radius: 10px;">
     <span style="font-size: 0.75rem; color: #ff9f0a; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Test Reservation</span>
@@ -64,7 +71,18 @@ function openTestReservation() {
             <tr>
                 <td><a href="{{ url_for('admin_reservation_detail', res_id=r.id) }}" style="font-weight: 600; color: var(--accent); text-decoration: none;">{{ r.reference_code }}</a></td>
                 <td style="font-size: 0.8rem;">{{ r.event.title }}</td>
-                <td>{{ r.name }}</td>
+                <td>
+                    {{ r.name }}
+                    {% if r.group_ref %}
+                    <br><span style="font-size: 0.7rem; color: var(--text3);">
+                        {% if r.group_ref == r.reference_code %}
+                            <span style="color: #ff9f0a;">&#9733; Group leader</span>
+                        {% else %}
+                            &#8627; <a href="{{ url_for('admin_reservations') }}?group={{ r.group_ref }}" style="color: #ff9f0a; text-decoration: none;">Group: {{ r.group_ref }}</a>
+                        {% endif %}
+                    </span>
+                    {% endif %}
+                </td>
                 <td style="font-size: 0.8rem; white-space: nowrap;" data-sort-value="{{ r.created_at.strftime('%Y%m%d%H%M') }}">{{ r.created_at.strftime('%d %b %Y %H:%M') }}</td>
                 <td style="font-size: 0.8rem;">{{ r.phone }}</td>
                 <td>{{ r.num_tickets }}</td>

@@ -21,11 +21,16 @@ def _promo_name(settings=None):
     return 'VIP Promotions'
 
 
-def send_confirmation_email(config, reservation, event, qr_base64=None, settings=None, lang='en', paid=False):
+def send_confirmation_email(config, reservation, event, qr_base64=None, settings=None, lang='en', paid=False, extra_tickets=None):
     if not config.get('SMTP_EMAIL') or not config.get('SMTP_PASSWORD'):
         return False
 
     e = EMAIL_TRANSLATIONS.get(lang, EMAIL_TRANSLATIONS['en'])
+    n = reservation.num_tickets
+    if lang == 'es':
+        tickets_label = f'{n} entrada' if n == 1 else f'{n} entradas'
+    else:
+        tickets_label = f'{n} Ticket' if n == 1 else f'{n} Tickets'
     app_url = config.get('APP_URL', '')
     business = event.business
     time_str = format_date_long(event.start_time, lang)
@@ -36,7 +41,7 @@ def send_confirmation_email(config, reservation, event, qr_base64=None, settings
 
     total = event.price * reservation.num_tickets if event.price else 0
     total_fmt = '{:g}'.format(float(total)) if total else '0'
-    manage_url = f"{app_url}/reservation/{reservation.reference_code}"
+    manage_url = f"{app_url}/reservation/{reservation.reference_code}?lang={lang}"
     promo_name = _promo_name(settings)
 
     show_qr_text = e['show_qr_paid'] if paid else e['show_qr']
@@ -56,7 +61,21 @@ def send_confirmation_email(config, reservation, event, qr_base64=None, settings
     else:
         payment_note = f"<p style='font-size:0.8rem;color:#777777;margin-top:12px;'>{e['payment_note'].format(business=business.name)}</p>" if event.price and event.price > 0 else ''
     arrive_note = '' if paid else f"<p style='font-size:0.8rem;color:#777777;margin-top:10px;'>{e['arrive_note']}</p>"
-    heading = e['heading_paid'] if paid else e['heading_confirmed']
+    heading = e['heading_paid'].format(tickets=tickets_label) if paid else e['heading_confirmed']
+
+    extra_html = ''
+    if extra_tickets:
+        rows = ''.join(
+            f"<tr><td style='padding:5px 0;font-size:0.85rem;color:#777777;'>{t['name']}</td>"
+            f"<td style='padding:5px 0;font-size:0.85rem;font-weight:600;color:#0a84ff;letter-spacing:1px;'>{t['ref']}</td></tr>"
+            for t in extra_tickets
+        )
+        extra_html = f"""
+        <div style="margin-top:20px;border-top:1px solid #e0e0e0;padding-top:16px;">
+            <p style="font-size:0.8rem;font-weight:600;color:#555555;margin-bottom:8px;">{e['group_extra_heading']}</p>
+            <table style="width:100%;border-collapse:collapse;">{rows}</table>
+            <p style="font-size:0.75rem;color:#999999;margin-top:10px;">{e['group_extra_note']}</p>
+        </div>"""
 
     html = f"""
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden;">
@@ -64,11 +83,8 @@ def send_confirmation_email(config, reservation, event, qr_base64=None, settings
             <span style="font-size:1.1rem;font-weight:700;color:#0a84ff;">{promo_name}</span>
         </div>
         <div style="padding:24px;">
-            <h2 style="margin:0 0 4px;font-size:1.05rem;color:#1a1a1a;">{heading}</h2>
-            <p style="color:#777777;font-size:0.85rem;margin:0 0 16px;">{e['your_reference']}</p>
-            <div style="text-align:center;background:#f5f5f5;border-radius:8px;padding:14px;margin-bottom:20px;">
-                <span style="font-size:2rem;font-weight:700;color:#0a84ff;letter-spacing:3px;">{reservation.reference_code}</span>
-            </div>
+            <h2 style="margin:0 0 12px;font-size:1.05rem;color:#1a1a1a;">{heading}</h2>
+            <p style="color:#777777;font-size:0.85rem;margin:0 0 20px;">{e['your_reference']} <strong style="color:#0a84ff;font-size:1rem;letter-spacing:2px;">{reservation.reference_code}</strong></p>
             <table style="width:100%;border-collapse:collapse;">
                 <tr><td style="padding:7px 0;color:#777777;font-size:0.85rem;">{e['label_event']}</td><td style="padding:7px 0;font-size:0.85rem;color:#1a1a1a;">{event.title}</td></tr>
                 <tr><td style="padding:7px 0;color:#777777;font-size:0.85rem;">{e['label_venue']}</td><td style="padding:7px 0;font-size:0.85rem;color:#1a1a1a;">{business.name}</td></tr>
@@ -80,6 +96,7 @@ def send_confirmation_email(config, reservation, event, qr_base64=None, settings
             {qr_html}
             {payment_note}
             {arrive_note}
+            {extra_html}
             <div style="text-align:center;margin-top:20px;">
                 <a href="{manage_url}" style="display:inline-block;background:#f5f5f5;color:#0a84ff;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:0.85rem;border:1px solid #e0e0e0;">{e['modify_link']}</a>
             </div>
@@ -92,7 +109,7 @@ def send_confirmation_email(config, reservation, event, qr_base64=None, settings
 
     msg = MIMEMultipart('alternative')
     subject_key = 'subject_paid' if paid else 'subject_confirmed'
-    msg['Subject'] = e[subject_key].format(event=event.title, ref=reservation.reference_code)
+    msg['Subject'] = e[subject_key].format(tickets=tickets_label, event=event.title, ref=reservation.reference_code)
     msg['From'] = _from_header(config, settings)
     msg['To'] = reservation.email
     msg.attach(MIMEText(html, 'html'))

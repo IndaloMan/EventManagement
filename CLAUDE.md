@@ -21,22 +21,22 @@ Multi-business event ticket reservation system for Marina Club Gastrobar, Torre 
 
 ## Reservation Flow
 1. Admin creates event in Google Calendar
-2. Admin syncs calendar in the app, sets price/capacity/poster/managers
+2. Admin syncs calendar in the app, sets price/capacity/poster/managers, chooses payment mode (cash / online / both)
 3. Admin downloads QR code for the event poster
 4. User finds event on business website (iframe) or scans QR on poster
 5. User submits reservation (name, phone, optional email, ticket count)
-6. User receives 8-character reference code
-7. User goes to venue, pays at the bar
-8. Staff marks reservation as "paid" in admin panel
+6. **Cash mode:** User receives 8-character reference code, pays at the bar. Staff marks as paid in admin panel.
+7. **Stripe mode:** User is redirected to Stripe Checkout after submitting. On success, reservation is automatically marked paid and a paid confirmation email is sent.
+8. **Both mode:** User chooses online or at-the-bar at reservation time.
 
 ## Database Tables
 - `businesses` — name, slug, address, phone, email, website, google_calendar_id, logo
 - `admins` — username, password_hash, name, email, phone, role (global_admin/owner/event_manager/event_security/cashier)
 - `admin_businesses` — links owners to businesses
-- `events` — business_id, gcal_event_id, event_code (6-char unique ID), title, dates, price, capacity, includes, dress_code, poster, terms, is_active
+- `events` — business_id, gcal_event_id, event_code (6-char unique ID), title, dates, price, capacity, includes, dress_code, poster, terms, is_active, payment_mode (cash/stripe/both)
 - `event_managers` — links event managers to events
-- `reservations` — event_id, reference_code, name, email, phone, num_tickets, status (pending/paid/cancelled), is_comp
-- `app_settings` — singleton (id=1): promo_display_name, promo_full_name, promo_description, smtp_email, smtp_password, smtp_from_name
+- `reservations` — event_id, reference_code, name, email, phone, num_tickets, status (pending/paid/cancelled), is_comp, stripe_payment_intent_id
+- `app_settings` — singleton (id=1): promo_display_name, promo_full_name, promo_description, smtp_email, smtp_password, smtp_from_name, stripe_publishable_key, stripe_secret_key, stripe_webhook_secret
 - `reservation_logs` — audit trail: reservation_id, admin_id, action, notes, created_at
 
 ## Key URLs
@@ -60,6 +60,10 @@ Multi-business event ticket reservation system for Marina Club Gastrobar, Torre 
 | `/admin/scan/<reference_code>` | Scan result — pay / comp / admit / cancel |
 | `/admin/settings` | App name + SMTP email settings (owner+) |
 | `/admin/maintenance` | DB maintenance tools (global admin only) |
+| `/stripe/checkout/<reference_code>` | Create Stripe Checkout session for a reservation |
+| `/stripe/success` | Stripe payment success landing — marks reservation paid |
+| `/stripe/cancel` | Stripe payment cancel landing — returns user to reservation |
+| `/stripe/webhook` | Stripe webhook endpoint — handles async payment events |
 
 ## File Structure
 ```
@@ -69,7 +73,7 @@ config.py           — Configuration (DB path, upload folder, calendar ID)
 calendar_sync.py    — Google Calendar API read-only integration
 qr_generator.py     — QR code PNG generation per event
 email_sender.py     — Gmail SMTP: confirmation, cancellation, password reset emails
-requirements.txt    — Flask, SQLAlchemy, Flask-Login, google-api, qrcode, Pillow, gunicorn
+requirements.txt    — Flask, SQLAlchemy, Flask-Login, google-api, qrcode, Pillow, gunicorn, stripe
 static/css/style.css — Dark PWA theme (standard UI spec)
 static/js/app.js    — Minimal JS (flash auto-dismiss, dirty form tracking)
 templates/base.html — App shell: header, hamburger nav, bottom tab nav
@@ -84,11 +88,13 @@ templates/          — Jinja2 templates (base, public pages, admin pages)
 - **Hamburger menu:** Mobile only (≤768px), right-anchored, auto-width to content, UPPERCASE labels
 - **App name:** Configurable via `/admin/settings` — stored in `app_settings`, injected globally via context processor
 - **Event codes:** 6-character unique identifier (e.g. `A3F9C2`) auto-generated per event; displayed read-only on event form
+- **Stripe payments:** Optional per-event — `payment_mode` = `cash` (default), `stripe` (online only), or `both` (guest chooses). Stripe keys configured in `/admin/settings`. On success, reservation auto-marked paid and paid-specific confirmation email sent. Webhook at `/stripe/webhook` handles async confirmation.
 
-## Current Status (6 May 2026)
+## Current Status (11 May 2026)
 - Fully functional and tested locally
 - Git repo: https://github.com/IndaloMan/EventManagement (private)
 - NOT YET DONE: Google Calendar service account setup, GCloud deployment
+- Stripe payments implemented on `feature/stripe-payments` — requires Stripe keys configured in settings before use
 - Default admin: username `admin`, password `changeme` (created on first run)
 
 ## Businesses (known)
@@ -108,6 +114,7 @@ Opens on http://localhost:5000 — creates `events.db` and default admin on firs
 |---|---|
 | `master` | Stable, deployable at all times |
 | `feature/spanish-language` | English/Spanish public UI translation (in progress) |
+| `feature/stripe-payments` | Optional Stripe online payment per event (in progress) |
 
 ## Reverting the Spanish Language Change
 If the language feature needs to be abandoned, from any state:

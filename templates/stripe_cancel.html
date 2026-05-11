@@ -1,31 +1,33 @@
 {% extends "base.html" %}
-{% block title %}Payment Cancelled{% endblock %}
+{% block title %}{{ t.payment_cancelled }}{% endblock %}
 {% block content %}
 <div class="confirmation-box">
     <svg viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" width="48" height="48" style="margin-bottom: 12px;">
         <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
     </svg>
-    <h2 style="font-size: 1.25rem; font-weight: 700;">Payment Cancelled</h2>
-    <p style="font-size: 0.85rem; color: var(--text2); margin-top: 6px;">Your reservation is still held.</p>
-    <div class="confirmation-ref" style="background: var(--surface2);">{{ reservation.reference_code }}</div>
+    <h2 style="font-size: 1.25rem; font-weight: 700;">{{ t.payment_cancelled }}</h2>
+    <p style="font-size: 0.85rem; color: var(--text2); margin-top: 6px;">
+        {{ t.your_reference }} <strong style="color: var(--accent); letter-spacing: 2px;">{{ reservation.reference_code }}</strong>
+    </p>
+    <p style="font-size: 0.85rem; color: var(--text2);">{{ t.reservation_held }}</p>
     <p class="confirmation-detail">{{ event.title }}</p>
-    <p class="confirmation-detail">{{ reservation.num_tickets }} ticket{% if reservation.num_tickets > 1 %}s{% endif %} — pending payment</p>
+    <p class="confirmation-detail">{{ reservation.num_tickets }} {{ t.ticket_singular if reservation.num_tickets == 1 else t.ticket_plural }} — {{ t.pending_payment }}</p>
 </div>
 
 <div style="margin: 20px 0;">
     <form method="POST" action="{{ url_for('stripe_checkout', reference_code=reservation.reference_code) }}">
-        <button type="submit" class="btn btn-success" style="width: 100%; margin-bottom: 10px;">Try Payment Again</button>
+        <button type="submit" class="btn btn-success" style="width: 100%; margin-bottom: 10px;">{{ t.try_payment_again }}</button>
     </form>
     {% if event.payment_mode == 'both' %}
     <p style="font-size: 0.8rem; color: var(--text3); text-align: center; margin-bottom: 10px;">
         — or —
     </p>
     <a href="{{ url_for('reservation_manage', reference_code=reservation.reference_code) }}" class="btn btn-surface" style="width: 100%; display: block; text-align: center;">
-        View Reservation (Pay at Bar)
+        {{ t.view_reservation_pay_bar }}
     </a>
     {% else %}
     <a href="{{ url_for('reservation_manage', reference_code=reservation.reference_code) }}" class="btn btn-surface" style="width: 100%; display: block; text-align: center; margin-top: 10px;">
-        View Reservation
+        {{ t.view_reservation }}
     </a>
     {% endif %}
 </div>

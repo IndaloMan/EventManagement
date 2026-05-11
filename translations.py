@@ -74,6 +74,15 @@ TRANSLATIONS = {
         'btn_confirm': 'Confirm Reservation',
         'btn_pay_online': 'Reserve & Pay Online',
         'btn_cancel': 'Cancel',
+        'stripe_redirect_note': "You'll be taken to our secure payment page after confirming.",
+        'payment_method': 'Payment Method',
+        'pay_online_now': 'Pay online now (card)',
+        'pay_at_bar': 'Pay at the {business} bar',
+        'split_tickets_toggle': 'Send individual tickets to each person?',
+        'ticket_n_email': 'Ticket {n} email',
+        'group_booking_note': 'Each person will receive their own confirmation email.',
+        'group_booking_label': 'Group Booking',
+        'no_email_provided': 'No email',
 
         # Confirmation page
         'confirmed_heading': 'Reservation Confirmed!',
@@ -122,6 +131,16 @@ TRANSLATIONS = {
         # Embed / generic
         'event_not_available': 'Event not available.',
         'no_upcoming_events': 'No upcoming events.',
+
+        # Stripe pages
+        'payment_confirmed': 'Payment Confirmed!',
+        'paid_online': 'paid online',
+        'payment_cancelled': 'Payment Cancelled',
+        'reservation_held': 'Your reservation is still held.',
+        'pending_payment': 'pending payment',
+        'try_payment_again': 'Try Payment Again',
+        'view_reservation_pay_bar': 'View Reservation (Pay at Bar)',
+        'view_reservation': 'View Reservation',
     },
     'es': {
         # Page / section titles
@@ -149,6 +168,15 @@ TRANSLATIONS = {
         'btn_confirm': 'Confirmar Reserva',
         'btn_pay_online': 'Reservar y Pagar Online',
         'btn_cancel': 'Cancelar',
+        'stripe_redirect_note': 'Serás redirigido a nuestra página de pago seguro tras confirmar.',
+        'payment_method': 'Método de Pago',
+        'pay_online_now': 'Pagar online ahora (tarjeta)',
+        'pay_at_bar': 'Pagar en la barra de {business}',
+        'split_tickets_toggle': '¿Enviar entradas individuales a cada persona?',
+        'ticket_n_email': 'Email entrada {n}',
+        'group_booking_note': 'Cada persona recibirá su propio email de confirmación.',
+        'group_booking_label': 'Reserva de Grupo',
+        'no_email_provided': 'Sin email',
 
         # Confirmation page
         'confirmed_heading': '¡Reserva Confirmada!',
@@ -197,6 +225,16 @@ TRANSLATIONS = {
         # Embed / generic
         'event_not_available': 'Evento no disponible.',
         'no_upcoming_events': 'No hay próximos eventos.',
+
+        # Stripe pages
+        'payment_confirmed': '¡Pago Confirmado!',
+        'paid_online': 'pagado online',
+        'payment_cancelled': 'Pago Cancelado',
+        'reservation_held': 'Tu reserva sigue reservada.',
+        'pending_payment': 'pago pendiente',
+        'try_payment_again': 'Intentar Pago de Nuevo',
+        'view_reservation_pay_bar': 'Ver Reserva (Pagar en la Barra)',
+        'view_reservation': 'Ver Reserva',
     }
 }
 
@@ -219,8 +257,8 @@ EMAIL_TRANSLATIONS = {
         'show_qr': 'Show this QR code at the bar:',
         'payment_note': 'Payment is made at the {business} bar.',
         'arrive_note': 'Please show this QR code or reference code when you arrive.',
-        'subject_paid': 'Ticket(s) purchase confirmation — {event} [{ref}]',
-        'heading_paid': 'Ticket(s) purchase confirmation',
+        'subject_paid': '{tickets} purchase confirmation — {event} [{ref}]',
+        'heading_paid': '{tickets} purchase confirmation',
         'show_qr_paid': 'Show this QR code at event door:',
         'payment_note_paid': 'Payment made online via Stripe.',
         'modify_link': 'Modify or Cancel Reservation',
@@ -228,6 +266,8 @@ EMAIL_TRANSLATIONS = {
         'reset_intro': 'You requested a password reset. Click the button below to set a new password. This link expires in 1 hour.',
         'reset_button': 'Reset Password',
         'reset_ignore': 'If you did not request this, ignore this email. Your password will not change.',
+        'group_extra_heading': 'Additional tickets in your group (no email provided):',
+        'group_extra_note': 'Please forward or print these reference codes for the other members of your group.',
     },
     'es': {
         'subject_confirmed': 'Reserva Confirmada — {event} [{ref}]',
@@ -245,8 +285,8 @@ EMAIL_TRANSLATIONS = {
         'show_qr': 'Muestra este código QR en la barra:',
         'payment_note': 'El pago se realiza en la barra de {business}.',
         'arrive_note': 'Por favor, muestra este código QR o código de referencia al llegar.',
-        'subject_paid': 'Confirmación de compra de entrada(s) — {event} [{ref}]',
-        'heading_paid': 'Confirmación de compra de entrada(s)',
+        'subject_paid': 'Confirmación de compra de {tickets} — {event} [{ref}]',
+        'heading_paid': 'Confirmación de compra de {tickets}',
         'show_qr_paid': 'Muestra este código QR en la puerta del evento:',
         'payment_note_paid': 'Pago realizado online a través de Stripe.',
         'modify_link': 'Modificar o Cancelar Reserva',
@@ -254,5 +294,7 @@ EMAIL_TRANSLATIONS = {
         'reset_intro': 'Has solicitado restablecer tu contraseña. Haz clic en el botón de abajo para establecer una nueva. Este enlace caduca en 1 hora.',
         'reset_button': 'Restablecer Contraseña',
         'reset_ignore': 'Si no has solicitado esto, ignora este correo. Tu contraseña no cambiará.',
+        'group_extra_heading': 'Entradas adicionales de tu grupo (sin email):',
+        'group_extra_note': 'Por favor reenvía o imprime estos códigos de referencia para los demás miembros de tu grupo.',
     }
 }

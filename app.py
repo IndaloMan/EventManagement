@@ -243,73 +243,108 @@ def reserve(event_id):
                 flash(f'Only {available} tickets remaining.', 'error')
                 return render_template('reserve.html', event=event)
 
-        reservation = Reservation(
-            event_id=event.id,
-            reference_code=Reservation.generate_reference(),
-            name=name,
-            email=email,
-            phone=phone,
-            num_tickets=num_tickets,
-            status='pending',
-            lang=get_lang()
-        )
-        db.session.add(reservation)
-        db.session.flush()
-        log_reservation(reservation.id, 'reserved',
-                        notes=f'{reservation.name}, {reservation.num_tickets} ticket(s)')
-
+        lang = get_lang()
         payment_choice = request.form.get('payment_choice', 'online')
         use_stripe = (
             event.price > 0 and
             event.payment_mode in ('stripe', 'both') and
             (event.payment_mode == 'stripe' or payment_choice == 'online')
         )
+        split_tickets = request.form.get('split_tickets') == '1' and num_tickets > 1
 
-        if use_stripe:
+        if split_tickets:
+            # Create leader reservation (1 ticket)
+            leader = Reservation(
+                event_id=event.id,
+                reference_code=Reservation.generate_reference(),
+                name=name, email=email, phone=phone,
+                num_tickets=1, status='pending', lang=lang,
+            )
+            db.session.add(leader)
+            db.session.flush()
+            log_reservation(leader.id, 'reserved',
+                            notes=f'{leader.name}, 1 ticket (group leader)')
+
+            # Create sub-ticket reservations
+            sub_reservations = []
+            for i in range(2, num_tickets + 1):
+                sub_email = request.form.get(f'ticket_email_{i}', '').strip() or None
+                sub = Reservation(
+                    event_id=event.id,
+                    reference_code=Reservation.generate_reference(),
+                    name=f'Guest {i}', email=sub_email, phone='',
+                    num_tickets=1, status='pending', lang=lang,
+                )
+                db.session.add(sub)
+                db.session.flush()
+                log_reservation(sub.id, 'reserved',
+                                notes=f'Guest {i}, 1 ticket (group {leader.reference_code})')
+                sub_reservations.append(sub)
+
+            group_ref = leader.reference_code
+            leader.group_ref = group_ref
+            for sub in sub_reservations:
+                sub.group_ref = group_ref
+
+            all_reservations = [leader] + sub_reservations
+
+            if use_stripe:
+                settings = AppSettings.query.first()
+                if settings and settings.stripe_secret_key:
+                    try:
+                        checkout_session = _create_stripe_session(
+                            leader, event, settings, total_tickets=num_tickets)
+                        leader.stripe_payment_intent_id = checkout_session.payment_intent
+                        db.session.commit()
+                        return redirect(checkout_session.url, code=303)
+                    except Exception as e:
+                        db.session.rollback()
+                        flash(f'Payment setup failed: {e}', 'error')
+                        return render_template('reserve.html', event=event)
+
+            # Cash: send group emails
             settings = AppSettings.query.first()
-            if settings and settings.stripe_secret_key:
-                stripe.api_key = settings.stripe_secret_key
-                try:
-                    ticket_label = 'ticket' if reservation.num_tickets == 1 else 'tickets'
-                    checkout_session = stripe.checkout.Session.create(
-                        payment_method_types=['card'],
-                        line_items=[{
-                            'price_data': {
-                                'currency': 'eur',
-                                'product_data': {
-                                    'name': f'{event.title} — {reservation.num_tickets} {ticket_label}',
-                                },
-                                'unit_amount': int(event.price * 100),
-                            },
-                            'quantity': reservation.num_tickets,
-                        }],
-                        mode='payment',
-                        success_url=f"{app.config['APP_URL']}/stripe/success?ref={reservation.reference_code}&session_id={{CHECKOUT_SESSION_ID}}",
-                        cancel_url=f"{app.config['APP_URL']}/stripe/cancel?ref={reservation.reference_code}",
-                        metadata={'reference_code': reservation.reference_code},
-                        customer_email=reservation.email,
-                    )
-                    reservation.stripe_payment_intent_id = checkout_session.payment_intent
-                    db.session.commit()
-                    return redirect(checkout_session.url, code=303)
-                except Exception as e:
-                    flash(f'Payment setup failed: {e}', 'error')
-                    db.session.commit()
-                    return render_template('reserve.html', event=event)
+            _send_group_emails(leader, all_reservations, event, settings, lang, paid=False)
+            db.session.commit()
+            return render_template('confirmation.html', event=event, reservation=leader,
+                                   group_reservations=all_reservations)
 
-        ref_qr_base64 = generate_reference_qr_base64(
-            f"{app.config['APP_URL']}/admin/scan/{reservation.reference_code}")
-        settings = AppSettings.query.first()
-        email_sent = send_confirmation_email(app.config, reservation, event, ref_qr_base64,
-                                             settings=settings, lang=get_lang())
-        if email_sent:
-            log_reservation(reservation.id, 'email_sent',
-                            notes=f'Confirmation sent to {reservation.email}')
+        else:
+            # Solo booking (original flow)
+            reservation = Reservation(
+                event_id=event.id,
+                reference_code=Reservation.generate_reference(),
+                name=name, email=email, phone=phone,
+                num_tickets=num_tickets, status='pending', lang=lang,
+            )
+            db.session.add(reservation)
+            db.session.flush()
+            log_reservation(reservation.id, 'reserved',
+                            notes=f'{reservation.name}, {reservation.num_tickets} ticket(s)')
 
-        db.session.commit()
+            if use_stripe:
+                settings = AppSettings.query.first()
+                if settings and settings.stripe_secret_key:
+                    try:
+                        checkout_session = _create_stripe_session(reservation, event, settings)
+                        reservation.stripe_payment_intent_id = checkout_session.payment_intent
+                        db.session.commit()
+                        return redirect(checkout_session.url, code=303)
+                    except Exception as e:
+                        flash(f'Payment setup failed: {e}', 'error')
+                        db.session.commit()
+                        return render_template('reserve.html', event=event)
 
-        return render_template('confirmation.html',
-                               event=event, reservation=reservation)
+            ref_qr_base64 = generate_reference_qr_base64(
+                f"{app.config['APP_URL']}/admin/scan/{reservation.reference_code}")
+            settings = AppSettings.query.first()
+            email_sent = send_confirmation_email(app.config, reservation, event, ref_qr_base64,
+                                                 settings=settings, lang=lang)
+            if email_sent:
+                log_reservation(reservation.id, 'email_sent',
+                                notes=f'Confirmation sent to {reservation.email}')
+            db.session.commit()
+            return render_template('confirmation.html', event=event, reservation=reservation)
 
     return render_template('reserve.html', event=event)
 
@@ -914,19 +949,23 @@ def admin_reservations():
 
     event_id = request.args.get('event_id', type=int)
     status = request.args.get('status', '')
+    group_ref = request.args.get('group', '').upper()
 
     query = Reservation.query.filter(Reservation.event_id.in_(event_ids))
     if event_id:
         query = query.filter(Reservation.event_id == event_id)
     if status:
         query = query.filter(Reservation.status == status)
+    if group_ref:
+        query = query.filter(Reservation.group_ref == group_ref)
 
     reservations = query.order_by(Reservation.created_at.desc()).all()
     return render_template('admin/reservations.html',
                            reservations=reservations,
                            events=accessible_events,
                            selected_event=event_id,
-                           selected_status=status)
+                           selected_status=status,
+                           selected_group=group_ref)
 
 
 @app.route('/admin/reservations/<int:res_id>/status', methods=['POST'])
@@ -1240,21 +1279,49 @@ def admin_settings():
 # Stripe payment routes
 # ---------------------------------------------------------------------------
 
-def _create_stripe_session(reservation, event, settings):
+def _send_group_emails(leader, all_members, event, settings, lang, paid=False):
+    """Send confirmation emails for a group booking. Leader gets extras for no-email members."""
+    extra_tickets = []
+    for res in all_members:
+        if res.id == leader.id:
+            continue
+        ref_qr = generate_reference_qr_base64(f"{app.config['APP_URL']}/admin/scan/{res.reference_code}")
+        if res.email:
+            sent = send_confirmation_email(app.config, res, event, ref_qr,
+                                           settings=settings, lang=lang, paid=paid)
+            if sent:
+                log_reservation(res.id, 'email_sent', notes=f'Confirmation sent to {res.email}')
+        else:
+            extra_tickets.append({'ref': res.reference_code, 'name': res.name})
+    ref_qr = generate_reference_qr_base64(f"{app.config['APP_URL']}/admin/scan/{leader.reference_code}")
+    sent = send_confirmation_email(app.config, leader, event, ref_qr,
+                                   settings=settings, lang=lang, paid=paid,
+                                   extra_tickets=extra_tickets if extra_tickets else None)
+    if sent:
+        log_reservation(leader.id, 'email_sent', notes=f'Confirmation sent to {leader.email}')
+
+
+def _create_stripe_session(reservation, event, settings, total_tickets=None):
     """Create a Stripe Checkout Session for the given reservation."""
     stripe.api_key = settings.stripe_secret_key
-    ticket_label = 'ticket' if reservation.num_tickets == 1 else 'tickets'
+    lang = reservation.lang or 'en'
+    qty = total_tickets if total_tickets is not None else reservation.num_tickets
+    if lang == 'es':
+        ticket_label = 'entrada' if qty == 1 else 'entradas'
+    else:
+        ticket_label = 'ticket' if qty == 1 else 'tickets'
     session = stripe.checkout.Session.create(
         payment_method_types=['card'],
+        locale=lang,
         line_items=[{
             'price_data': {
                 'currency': 'eur',
                 'product_data': {
-                    'name': f'{event.title} — {reservation.num_tickets} {ticket_label}',
+                    'name': f'{event.title} — {qty} {ticket_label}',
                 },
                 'unit_amount': int(event.price * 100),
             },
-            'quantity': reservation.num_tickets,
+            'quantity': qty,
         }],
         mode='payment',
         success_url=f"{app.config['APP_URL']}/stripe/success?ref={reservation.reference_code}&session_id={{CHECKOUT_SESSION_ID}}",
@@ -1296,7 +1363,9 @@ def stripe_success():
     session_id = request.args.get('session_id', '')
     reservation = Reservation.query.filter_by(reference_code=ref).first_or_404()
     event = reservation.event
+    lang = reservation.lang or 'en'
 
+    group_reservations = []
     if reservation.status == 'pending' and session_id:
         settings = AppSettings.query.first()
         if settings and settings.stripe_secret_key:
@@ -1307,19 +1376,42 @@ def stripe_success():
                     reservation.status = 'paid'
                     reservation.paid_at = datetime.now(timezone.utc).replace(tzinfo=None)
                     log_reservation(reservation.id, 'paid', notes='Stripe online payment')
-                    db.session.commit()
-                    ref_qr_base64 = generate_reference_qr_base64(
-                        f"{app.config['APP_URL']}/admin/scan/{reservation.reference_code}")
-                    email_sent = send_confirmation_email(app.config, reservation, event,
-                                                        ref_qr_base64, settings=settings, paid=True)
-                    if email_sent:
-                        log_reservation(reservation.id, 'email_sent',
-                                        notes=f'Confirmation sent to {reservation.email}')
+
+                    # Mark group members paid
+                    if reservation.group_ref:
+                        all_members = Reservation.query.filter_by(
+                            group_ref=reservation.group_ref).all()
+                        for member in all_members:
+                            if member.id != reservation.id and member.status == 'pending':
+                                member.status = 'paid'
+                                member.paid_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                                log_reservation(member.id, 'paid',
+                                                notes='Stripe online payment (group)')
                         db.session.commit()
+                        group_reservations = all_members
+                        _send_group_emails(reservation, all_members, event, settings,
+                                           lang, paid=True)
+                    else:
+                        db.session.commit()
+                        ref_qr_base64 = generate_reference_qr_base64(
+                            f"{app.config['APP_URL']}/admin/scan/{reservation.reference_code}")
+                        email_sent = send_confirmation_email(app.config, reservation, event,
+                                                            ref_qr_base64, settings=settings,
+                                                            lang=lang, paid=True)
+                        if email_sent:
+                            log_reservation(reservation.id, 'email_sent',
+                                            notes=f'Confirmation sent to {reservation.email}')
+                            db.session.commit()
             except Exception:
                 pass
+    elif reservation.group_ref:
+        group_reservations = Reservation.query.filter_by(
+            group_ref=reservation.group_ref).all()
 
-    return render_template('stripe_success.html', reservation=reservation, event=event)
+    t = TRANSLATIONS.get(lang, TRANSLATIONS['en'])
+    date_str = format_date_long(event.start_time, lang)
+    return render_template('stripe_success.html', reservation=reservation, event=event,
+                           t=t, date_str=date_str, group_reservations=group_reservations)
 
 
 @app.route('/stripe/cancel')
@@ -1327,7 +1419,9 @@ def stripe_cancel():
     ref = request.args.get('ref', '').upper()
     reservation = Reservation.query.filter_by(reference_code=ref).first_or_404()
     event = reservation.event
-    return render_template('stripe_cancel.html', reservation=reservation, event=event)
+    lang = reservation.lang or 'en'
+    t = TRANSLATIONS.get(lang, TRANSLATIONS['en'])
+    return render_template('stripe_cancel.html', reservation=reservation, event=event, t=t)
 
 
 @app.route('/stripe/webhook', methods=['POST'])
@@ -1358,6 +1452,15 @@ def stripe_webhook():
                 reservation.status = 'paid'
                 reservation.paid_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 log_reservation(reservation.id, 'paid', notes='Stripe webhook confirmation')
+                if reservation.group_ref:
+                    group_members = Reservation.query.filter_by(
+                        group_ref=reservation.group_ref).all()
+                    for member in group_members:
+                        if member.id != reservation.id and member.status == 'pending':
+                            member.status = 'paid'
+                            member.paid_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                            log_reservation(member.id, 'paid',
+                                            notes='Stripe webhook confirmation (group)')
                 db.session.commit()
 
     return '', 200
@@ -1401,6 +1504,9 @@ def init_db():
             res_cols2 = [r[1] for r in conn.execute(db.text("PRAGMA table_info(reservations)"))]
             if 'stripe_payment_intent_id' not in res_cols2:
                 conn.execute(db.text("ALTER TABLE reservations ADD COLUMN stripe_payment_intent_id VARCHAR(256)"))
+                conn.commit()
+            if 'group_ref' not in res_cols2:
+                conn.execute(db.text("ALTER TABLE reservations ADD COLUMN group_ref VARCHAR(8)"))
                 conn.commit()
             settings_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(app_settings)"))]
             if 'stripe_publishable_key' not in settings_cols:

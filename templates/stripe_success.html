@@ -1,25 +1,48 @@
 {% extends "base.html" %}
-{% block title %}Payment Confirmed{% endblock %}
+{% block title %}{{ t.payment_confirmed }}{% endblock %}
 {% block content %}
+{% set is_group = group_reservations and group_reservations|length > 1 %}
+{% set n_tickets = group_reservations|length if is_group else reservation.num_tickets %}
 <div class="confirmation-box">
     <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="2" width="48" height="48" style="margin-bottom: 12px;">
         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
     </svg>
-    <h2 style="font-size: 1.25rem; font-weight: 700;">Payment Confirmed!</h2>
-    <p style="font-size: 0.85rem; color: var(--text2); margin-top: 6px;">Your reference code:</p>
-    <div class="confirmation-ref">{{ reservation.reference_code }}</div>
+    <h2 style="font-size: 1.25rem; font-weight: 700;">{{ t.payment_confirmed }}</h2>
+    <p style="font-size: 0.85rem; color: var(--text2); margin-top: 6px;">
+        {{ t.your_reference }} <strong style="color: var(--accent); letter-spacing: 2px;">{{ reservation.reference_code }}</strong>
+    </p>
     <p class="confirmation-detail">{{ event.title }}</p>
-    <p class="confirmation-detail">{{ event.start_time.strftime('%A %d %B %Y, %H:%M') }}</p>
-    <p class="confirmation-detail">{{ reservation.num_tickets }} ticket{% if reservation.num_tickets > 1 %}s{% endif %}</p>
+    <p class="confirmation-detail">{{ date_str }}</p>
+    <p class="confirmation-detail">{{ n_tickets }} {{ t.ticket_singular if n_tickets == 1 else t.ticket_plural }}</p>
     <p class="confirmation-detail" style="font-weight: 600; color: var(--accent2);">
-        &euro;{{ (event.price * reservation.num_tickets)|fmt_eur }} paid online
+        &euro;{{ (event.price * n_tickets)|fmt_eur }} {{ t.paid_online }}
     </p>
 </div>
 
+{% if is_group %}
+<div class="field-group" style="margin: 16px 0;">
+    <p class="field-group-label">{{ t.group_booking_label }}</p>
+    {% for r in group_reservations %}
+    <div class="field-row" style="gap: 8px; align-items: center;">
+        <div style="flex: 1; min-width: 0;">
+            <span style="font-weight: 600; color: var(--accent); letter-spacing: 1px; font-size: 0.9rem;">{{ r.reference_code }}</span>
+            <span style="font-size: 0.75rem; color: var(--text3); margin-left: 8px;">{{ r.name }}</span>
+        </div>
+        <span style="font-size: 0.75rem; {% if r.email %}color: var(--accent2);{% else %}color: var(--text3);{% endif %} white-space: nowrap;">
+            {% if r.email %}{{ r.email }}{% else %}{{ t.no_email_provided }}{% endif %}
+        </span>
+    </div>
+    {% endfor %}
+</div>
+<div style="text-align: center; font-size: 0.85rem; color: var(--text2); margin: 16px 0;">
+    <p>{{ t.show_reference }}</p>
+</div>
+{% else %}
 <div style="text-align: center; font-size: 0.85rem; color: var(--text2); margin: 16px 0;">
     {% if reservation.email %}
-    <p>Confirmation sent to {{ reservation.email }}</p>
+    <p>{{ t.confirmation_sent.format(email=reservation.email) }}</p>
     {% endif %}
-    <p style="margin-top: 6px;">Please show this reference code when you arrive.</p>
+    <p style="margin-top: 6px;">{{ t.show_reference }}</p>
 </div>
+{% endif %}
 {% endblock %}

@@ -180,6 +180,7 @@ class Reservation(db.Model):
     is_comp = db.Column(db.Boolean, default=False)
     notes = db.Column(db.Text)
     stripe_payment_intent_id = db.Column(db.String(256))
+    group_ref = db.Column(db.String(8))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     paid_at = db.Column(db.DateTime)

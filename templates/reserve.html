@@ -60,6 +60,18 @@
         </div>
     </div>
 
+    <div id="split-toggle-row" class="field-group" style="display: none;">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer;" onclick="document.getElementById('split_toggle').click();">
+            <input type="checkbox" id="split_toggle" name="split_tickets" value="1" style="width: 18px; height: 18px; flex-shrink: 0;" onchange="updateSplitEmails()" onclick="event.stopPropagation();">
+            <label for="split_toggle" style="font-size: 0.85rem; color: var(--text2); cursor: pointer;">{{ t.split_tickets_toggle }}</label>
+        </div>
+    </div>
+
+    <div id="split-emails-section" class="field-group" style="display: none;">
+        <div id="split-emails-container"></div>
+        <p style="font-size: 0.75rem; color: var(--text3); padding: 0 14px 10px; margin: 0;">{{ t.group_booking_note }}</p>
+    </div>
+
     {% set terms = event_file(event, 'terms', lang) %}
     {% if terms %}
     <div class="field-group">
@@ -77,17 +89,17 @@
     </p>
     {% elif event.payment_mode == 'stripe' %}
     <p style="font-size: 0.8rem; color: var(--text3); text-align: center; margin-bottom: 12px;">
-        You'll be taken to our secure payment page after confirming.
+        {{ t.stripe_redirect_note }}
     </p>
     {% elif event.payment_mode == 'both' %}
     <div class="field-group">
-        <p class="field-group-label">Payment Method</p>
+        <p class="field-group-label">{{ t.payment_method }}</p>
         <div class="field-row" style="cursor: pointer;" onclick="document.getElementById('pay_online').checked=true;">
-            <label for="pay_online" style="cursor: pointer;">Pay online now (card)</label>
+            <label for="pay_online" style="cursor: pointer;">{{ t.pay_online_now }}</label>
             <input type="radio" id="pay_online" name="payment_choice" value="online" checked style="width: 20px; height: 20px;">
         </div>
         <div class="field-row" style="cursor: pointer;" onclick="document.getElementById('pay_cash').checked=true;">
-            <label for="pay_cash" style="cursor: pointer;">Pay at the {{ event.business.name }} bar</label>
+            <label for="pay_cash" style="cursor: pointer;">{{ t.pay_at_bar.format(business=event.business.name) }}</label>
             <input type="radio" id="pay_cash" name="payment_choice" value="cash" style="width: 20px; height: 20px;">
         </div>
     </div>
@@ -103,4 +115,57 @@
         <a href="{{ url_for('business_events', slug=event.business.slug) }}" class="btn btn-surface" style="flex: 1;">{{ t.btn_cancel }}</a>
     </div>
 </form>
+<script>
+var ticketNLabel = {{ t.ticket_n_email | tojson }};
+var optionalLabel = {{ t.placeholder_phone | tojson }};
+
+function updateSplitEmails() {
+    var qty = parseInt(document.getElementById('num_tickets').value) || 1;
+    var toggleRow = document.getElementById('split-toggle-row');
+    var toggle = document.getElementById('split_toggle');
+    var section = document.getElementById('split-emails-section');
+    var container = document.getElementById('split-emails-container');
+
+    if (qty > 1) {
+        toggleRow.style.display = '';
+    } else {
+        toggleRow.style.display = 'none';
+        toggle.checked = false;
+        section.style.display = 'none';
+        return;
+    }
+
+    if (!toggle.checked) {
+        section.style.display = 'none';
+        return;
+    }
+
+    section.style.display = '';
+    var needed = qty - 1;
+    var rows = container.querySelectorAll('.split-email-row');
+
+    while (rows.length > needed) {
+        container.removeChild(rows[rows.length - 1]);
+        rows = container.querySelectorAll('.split-email-row');
+    }
+    while (rows.length < needed) {
+        var n = rows.length + 2;
+        var div = document.createElement('div');
+        div.className = 'field-row split-email-row';
+        div.innerHTML = '<label>' + ticketNLabel.replace('{n}', n) + '</label>' +
+            '<input type="email" name="ticket_email_' + n + '" placeholder="' + optionalLabel + '">';
+        container.appendChild(div);
+        rows = container.querySelectorAll('.split-email-row');
+    }
+    rows = container.querySelectorAll('.split-email-row');
+    rows.forEach(function(row, idx) {
+        var n = idx + 2;
+        row.querySelector('label').textContent = ticketNLabel.replace('{n}', n);
+        row.querySelector('input').name = 'ticket_email_' + n;
+    });
+}
+
+document.getElementById('num_tickets').addEventListener('change', updateSplitEmails);
+updateSplitEmails();
+</script>
 {% endblock %}
