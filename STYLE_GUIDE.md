@@ -48,7 +48,7 @@ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 | Section title | `0.7rem` | 600 | Uppercase, `letter-spacing: 0.8px` |
 | Card title | `0.95rem` | 600 | |
 | Card meta | `0.85rem` | 400 | Right-aligned, `white-space: nowrap` |
-| Field label | `0.75rem` | 600 | Uppercase, `letter-spacing: 0.5px`, `width: 90px` |
+| Field label | `0.75rem` | 600 | Uppercase, `letter-spacing: 0.5px`, `width: 130px` — wide enough to prevent wrapping on two-word labels |
 | Field value | `0.95rem` | 400 | |
 | Badge | `0.7rem` | 600 | Uppercase |
 | Flash message | `0.85rem` | 500 | |
@@ -229,7 +229,7 @@ Forms are grouped visually using `.field-group` containers. Each row is a `.fiel
 
 **Optional fields:** Show `placeholder="Optional"` on the input — no asterisk.
 
-Field labels are `width: 90px`, uppercase, `0.75rem`. Inputs are `flex: 1`, transparent background, no border.
+Field labels are `width: 130px`, uppercase, `0.75rem`. Inputs are `flex: 1`, transparent background, no border. The width must be wide enough to prevent wrapping on two-word labels such as "Publishable Key" or "Webhook Secret".
 
 ---
 

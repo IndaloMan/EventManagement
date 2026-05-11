@@ -20,6 +20,10 @@
             <label>Identifier</label>
             <span style="font-size: 0.9rem; font-weight: 700; color: var(--accent); letter-spacing: 1px;">{{ business.slug }}</span>
         </div>
+        <div class="field-row">
+            <label>Active</label>
+            <input type="checkbox" name="is_active" {% if business.is_active %}checked{% endif %} style="width: 20px; height: 20px;">
+        </div>
         {% endif %}
         <div class="field-row">
             <label for="address">Address</label>
@@ -55,31 +59,35 @@
 
     {% if business %}
     <div class="field-group">
-        <div class="field-row">
-            <label>Active</label>
-            <input type="checkbox" name="is_active" {% if business.is_active %}checked{% endif %} style="width: 20px; height: 20px;">
-        </div>
-    </div>
-
-    <div class="field-group">
         <p class="field-group-label">Stripe Payments</p>
         <div class="field-row">
             <label>Stripe Enabled</label>
-            <input type="checkbox" name="stripe_enabled" {% if business.stripe_enabled %}checked{% endif %} style="width: 20px; height: 20px;">
+            <input type="checkbox" id="stripe_enabled" name="stripe_enabled" {% if business.stripe_enabled %}checked{% endif %} style="width: 20px; height: 20px;">
         </div>
-        <div class="field-row">
-            <label>Publishable Key</label>
-            <input type="text" name="stripe_publishable_key" value="{{ business.stripe_publishable_key or '' }}" placeholder="pk_live_… (leave blank to use global keys)">
-        </div>
-        <div class="field-row">
-            <label>Secret Key</label>
-            <input type="password" name="stripe_secret_key" value="{{ business.stripe_secret_key or '' }}" placeholder="sk_live_… (leave blank to use global keys)">
-        </div>
-        <div class="field-row">
-            <label>Webhook Secret</label>
-            <input type="password" name="stripe_webhook_secret" value="{{ business.stripe_webhook_secret or '' }}" placeholder="whsec_… (Optional)">
+        <div id="stripe-key-fields">
+            <div class="field-row">
+                <label>Publishable Key</label>
+                <input type="text" name="stripe_publishable_key" value="{{ business.stripe_publishable_key or '' }}" placeholder="pk_live_… (leave blank to use global keys)">
+            </div>
+            <div class="field-row">
+                <label>Secret Key</label>
+                <input type="password" name="stripe_secret_key" value="{{ business.stripe_secret_key or '' }}" placeholder="sk_live_… (leave blank to use global keys)">
+            </div>
+            <div class="field-row" style="border-bottom: none;">
+                <label>Webhook Secret</label>
+                <input type="password" name="stripe_webhook_secret" value="{{ business.stripe_webhook_secret or '' }}" placeholder="whsec_… (Optional)">
+            </div>
         </div>
     </div>
+    <script>
+        (function () {
+            var cb = document.getElementById('stripe_enabled');
+            var fields = document.getElementById('stripe-key-fields');
+            function toggle() { fields.style.display = cb.checked ? '' : 'none'; }
+            toggle();
+            cb.addEventListener('change', toggle);
+        })();
+    </script>
     {% endif %}
 
     <div class="btn-row" style="margin-top: 16px;">

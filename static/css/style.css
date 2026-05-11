@@ -245,7 +245,7 @@ body {
 .field-row:last-child { border-bottom: none; }
 
 .field-row label {
-    width: 90px;
+    width: 130px;
     flex-shrink: 0;
     font-size: 0.75rem;
     font-weight: 600;
