@@ -289,11 +289,11 @@ def reserve(event_id):
             all_reservations = [leader] + sub_reservations
 
             if use_stripe:
-                settings = AppSettings.query.first()
-                if settings and settings.stripe_secret_key:
+                stripe_keys = _get_stripe_keys(event.business)
+                if stripe_keys:
                     try:
                         checkout_session = _create_stripe_session(
-                            leader, event, settings, total_tickets=num_tickets)
+                            leader, event, stripe_keys, total_tickets=num_tickets)
                         leader.stripe_payment_intent_id = checkout_session.payment_intent
                         db.session.commit()
                         return redirect(checkout_session.url, code=303)
@@ -323,10 +323,10 @@ def reserve(event_id):
                             notes=f'{reservation.name}, {reservation.num_tickets} ticket(s)')
 
             if use_stripe:
-                settings = AppSettings.query.first()
-                if settings and settings.stripe_secret_key:
+                stripe_keys = _get_stripe_keys(event.business)
+                if stripe_keys:
                     try:
-                        checkout_session = _create_stripe_session(reservation, event, settings)
+                        checkout_session = _create_stripe_session(reservation, event, stripe_keys)
                         reservation.stripe_payment_intent_id = checkout_session.payment_intent
                         db.session.commit()
                         return redirect(checkout_session.url, code=303)
@@ -601,6 +601,16 @@ def admin_business_edit(biz_id):
         business.website = request.form.get('website', '').strip()
         business.description = request.form.get('description', '').strip()
         business.is_active = 'is_active' in request.form
+        business.stripe_enabled = 'stripe_enabled' in request.form
+        stripe_pub = request.form.get('stripe_publishable_key', '').strip()
+        stripe_sec = request.form.get('stripe_secret_key', '').strip()
+        stripe_wh = request.form.get('stripe_webhook_secret', '').strip()
+        if stripe_pub:
+            business.stripe_publishable_key = stripe_pub
+        if stripe_sec:
+            business.stripe_secret_key = stripe_sec
+        if stripe_wh:
+            business.stripe_webhook_secret = stripe_wh
 
         logo = request.files.get('logo')
         if logo and logo.filename and allowed_file(logo.filename):
@@ -1301,9 +1311,30 @@ def _send_group_emails(leader, all_members, event, settings, lang, paid=False):
         log_reservation(leader.id, 'email_sent', notes=f'Confirmation sent to {leader.email}')
 
 
-def _create_stripe_session(reservation, event, settings, total_tickets=None):
+def _get_stripe_keys(business):
+    """Return (publishable_key, secret_key, webhook_secret) for a business.
+
+    Uses business-level keys when the business has Stripe enabled and its own
+    keys configured; falls back to global app_settings keys when enabled but no
+    business keys are set; returns None if Stripe is not enabled for the business.
+    """
+    if not business or not business.stripe_enabled:
+        return None
+    if business.stripe_secret_key:
+        return (business.stripe_publishable_key,
+                business.stripe_secret_key,
+                business.stripe_webhook_secret)
+    settings = AppSettings.query.first()
+    if settings and settings.stripe_secret_key:
+        return (settings.stripe_publishable_key,
+                settings.stripe_secret_key,
+                settings.stripe_webhook_secret)
+    return None
+
+
+def _create_stripe_session(reservation, event, keys, total_tickets=None):
     """Create a Stripe Checkout Session for the given reservation."""
-    stripe.api_key = settings.stripe_secret_key
+    stripe.api_key = keys[1]
     lang = reservation.lang or 'en'
     qty = total_tickets if total_tickets is not None else reservation.num_tickets
     if lang == 'es':
@@ -1342,13 +1373,13 @@ def stripe_checkout(reference_code):
         flash('This reservation cannot be paid online.', 'error')
         return redirect(url_for('reservation_manage', reference_code=reservation.reference_code))
 
-    settings = AppSettings.query.first()
-    if not settings or not settings.stripe_secret_key:
+    stripe_keys = _get_stripe_keys(event.business)
+    if not stripe_keys:
         flash('Online payment is not available.', 'error')
         return redirect(url_for('reservation_manage', reference_code=reservation.reference_code))
 
     try:
-        session = _create_stripe_session(reservation, event, settings)
+        session = _create_stripe_session(reservation, event, stripe_keys)
         reservation.stripe_payment_intent_id = session.payment_intent
         db.session.commit()
         return redirect(session.url, code=303)
@@ -1368,8 +1399,9 @@ def stripe_success():
     group_reservations = []
     if reservation.status == 'pending' and session_id:
         settings = AppSettings.query.first()
-        if settings and settings.stripe_secret_key:
-            stripe.api_key = settings.stripe_secret_key
+        stripe_keys = _get_stripe_keys(event.business)
+        if stripe_keys:
+            stripe.api_key = stripe_keys[1]
             try:
                 cs = stripe.checkout.Session.retrieve(session_id)
                 if cs.payment_status == 'paid':
@@ -1426,22 +1458,46 @@ def stripe_cancel():
 
 @app.route('/stripe/webhook', methods=['POST'])
 def stripe_webhook():
-    settings = AppSettings.query.first()
-    if not settings or not settings.stripe_secret_key:
-        return '', 400
-
-    stripe.api_key = settings.stripe_secret_key
+    import json as _json
     payload = request.get_data()
     sig_header = request.headers.get('Stripe-Signature', '')
 
-    if settings.stripe_webhook_secret:
+    # Parse payload to find the reference code so we can resolve the business
+    try:
+        raw_event = _json.loads(payload)
+    except ValueError:
+        return '', 400
+
+    ref = ''
+    if raw_event.get('type') == 'checkout.session.completed':
+        cs = raw_event.get('data', {}).get('object', {})
+        ref = (cs.get('metadata') or {}).get('reference_code', '')
+
+    # Resolve Stripe keys from the business, falling back to global settings
+    stripe_keys = None
+    if ref:
+        reservation = Reservation.query.filter_by(reference_code=ref).first()
+        if reservation:
+            stripe_keys = _get_stripe_keys(reservation.event.business)
+    if not stripe_keys:
+        settings = AppSettings.query.first()
+        if settings and settings.stripe_secret_key:
+            stripe_keys = (settings.stripe_publishable_key,
+                           settings.stripe_secret_key,
+                           settings.stripe_webhook_secret)
+    if not stripe_keys:
+        return '', 400
+
+    stripe.api_key = stripe_keys[1]
+    webhook_secret = stripe_keys[2]
+
+    if webhook_secret:
         try:
-            event_obj = stripe.Webhook.construct_event(payload, sig_header, settings.stripe_webhook_secret)
+            event_obj = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
         except (ValueError, stripe.error.SignatureVerificationError):
             return '', 400
     else:
-        import json as _json
-        event_obj = _json.loads(payload)
+        event_obj = raw_event
 
     if event_obj['type'] == 'checkout.session.completed':
         cs = event_obj['data']['object']
@@ -1507,6 +1563,13 @@ def init_db():
                 conn.commit()
             if 'group_ref' not in res_cols2:
                 conn.execute(db.text("ALTER TABLE reservations ADD COLUMN group_ref VARCHAR(8)"))
+                conn.commit()
+            biz_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(businesses)"))]
+            if 'stripe_enabled' not in biz_cols:
+                conn.execute(db.text("ALTER TABLE businesses ADD COLUMN stripe_enabled BOOLEAN DEFAULT 0"))
+                conn.execute(db.text("ALTER TABLE businesses ADD COLUMN stripe_publishable_key VARCHAR(256)"))
+                conn.execute(db.text("ALTER TABLE businesses ADD COLUMN stripe_secret_key VARCHAR(256)"))
+                conn.execute(db.text("ALTER TABLE businesses ADD COLUMN stripe_webhook_secret VARCHAR(256)"))
                 conn.commit()
             settings_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(app_settings)"))]
             if 'stripe_publishable_key' not in settings_cols:

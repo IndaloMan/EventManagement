@@ -60,6 +60,26 @@
             <input type="checkbox" name="is_active" {% if business.is_active %}checked{% endif %} style="width: 20px; height: 20px;">
         </div>
     </div>
+
+    <div class="field-group">
+        <p class="field-group-label">Stripe Payments</p>
+        <div class="field-row">
+            <label>Stripe Enabled</label>
+            <input type="checkbox" name="stripe_enabled" {% if business.stripe_enabled %}checked{% endif %} style="width: 20px; height: 20px;">
+        </div>
+        <div class="field-row">
+            <label>Publishable Key</label>
+            <input type="text" name="stripe_publishable_key" value="{{ business.stripe_publishable_key or '' }}" placeholder="pk_live_… (leave blank to use global keys)">
+        </div>
+        <div class="field-row">
+            <label>Secret Key</label>
+            <input type="password" name="stripe_secret_key" value="{{ business.stripe_secret_key or '' }}" placeholder="sk_live_… (leave blank to use global keys)">
+        </div>
+        <div class="field-row">
+            <label>Webhook Secret</label>
+            <input type="password" name="stripe_webhook_secret" value="{{ business.stripe_webhook_secret or '' }}" placeholder="whsec_… (Optional)">
+        </div>
+    </div>
     {% endif %}
 
     <div class="btn-row" style="margin-top: 16px;">

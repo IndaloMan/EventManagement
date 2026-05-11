@@ -20,6 +20,10 @@ class Business(db.Model):
     logo_filename = db.Column(db.String(256))
     description = db.Column(db.Text)
     is_active = db.Column(db.Boolean, default=True)
+    stripe_enabled = db.Column(db.Boolean, default=False)
+    stripe_publishable_key = db.Column(db.String(256))
+    stripe_secret_key = db.Column(db.String(256))
+    stripe_webhook_secret = db.Column(db.String(256))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     events = db.relationship('Event', backref='business', lazy=True)
 
