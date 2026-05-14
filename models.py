@@ -1,7 +1,5 @@
 from datetime import datetime, timezone
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import UserMixin
-from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
 
 db = SQLAlchemy()
@@ -24,105 +22,20 @@ class Business(db.Model):
     stripe_publishable_key = db.Column(db.String(256))
     stripe_secret_key = db.Column(db.String(256))
     stripe_webhook_secret = db.Column(db.String(256))
+    solstack_location_id = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     events = db.relationship('Event', backref='business', lazy=True)
 
 
-admin_businesses = db.Table('admin_businesses',
-    db.Column('admin_id', db.Integer, db.ForeignKey('admins.id'), primary_key=True),
-    db.Column('business_id', db.Integer, db.ForeignKey('businesses.id'), primary_key=True)
-)
-
-event_managers = db.Table('event_managers',
-    db.Column('admin_id', db.Integer, db.ForeignKey('admins.id'), primary_key=True),
-    db.Column('event_id', db.Integer, db.ForeignKey('events.id'), primary_key=True)
-)
-
-
-class Admin(UserMixin, db.Model):
-    __tablename__ = 'admins'
+class EventStaff(db.Model):
+    """Per-event staff assignment keyed by SolStack user_id."""
+    __tablename__ = 'event_staff'
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)
+    event_id = db.Column(db.Integer, db.ForeignKey('events.id'), nullable=False)
+    solstack_user_id = db.Column(db.Integer, nullable=False)
+    role = db.Column(db.String(30), nullable=False)  # staff_event or staff_security
     name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(120))
-    phone = db.Column(db.String(30))
-    role = db.Column(db.String(20), nullable=False, default='event_manager')
-    is_active_admin = db.Column(db.Boolean, default=True)
-    reset_token = db.Column(db.String(64))
-    reset_token_expires = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    businesses = db.relationship('Business', secondary=admin_businesses, backref='admins')
-    managed_events = db.relationship('Event', secondary=event_managers, backref='managers')
-
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
-
-    ROLE_HIERARCHY = ['cashier', 'event_security', 'event_manager', 'owner', 'global_admin']
-
-    @property
-    def role_level(self):
-        try:
-            return self.ROLE_HIERARCHY.index(self.role)
-        except ValueError:
-            return -1
-
-    @property
-    def is_global_admin(self):
-        return self.role == 'global_admin'
-
-    @property
-    def is_owner(self):
-        return self.role_level >= self.ROLE_HIERARCHY.index('owner')
-
-    @property
-    def is_event_manager(self):
-        return self.role_level >= self.ROLE_HIERARCHY.index('event_manager')
-
-    @property
-    def is_event_security(self):
-        return self.role_level >= self.ROLE_HIERARCHY.index('event_security')
-
-    @property
-    def is_cashier(self):
-        return self.role_level >= self.ROLE_HIERARCHY.index('cashier')
-
-    @property
-    def role_exact(self):
-        return self.role
-
-    def can_access_business(self, business):
-        if self.is_global_admin:
-            return True
-        if self.role in ('owner', 'cashier'):
-            return business in self.businesses
-        return any(e.business_id == business.id for e in self.managed_events)
-
-    def can_access_event(self, event):
-        if self.is_global_admin:
-            return True
-        if self.role in ('owner', 'cashier'):
-            return event.business in self.businesses
-        return event in self.managed_events
-
-    def get_accessible_businesses(self):
-        if self.is_global_admin:
-            return Business.query.filter_by(is_active=True).all()
-        if self.role in ('owner', 'cashier'):
-            return [b for b in self.businesses if b.is_active]
-        business_ids = {e.business_id for e in self.managed_events}
-        return Business.query.filter(Business.id.in_(business_ids)).all()
-
-    def get_accessible_events(self):
-        if self.is_global_admin:
-            return Event.query.order_by(Event.start_time.desc()).all()
-        if self.role in ('owner', 'cashier'):
-            biz_ids = [b.id for b in self.businesses]
-            return Event.query.filter(Event.business_id.in_(biz_ids)).order_by(Event.start_time.desc()).all()
-        return list(self.managed_events)
 
 
 class Event(db.Model):
@@ -148,6 +61,8 @@ class Event(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     reservations = db.relationship('Reservation', backref='event', lazy=True)
+    staff = db.relationship('EventStaff', backref='event', lazy=True,
+                            cascade='all, delete-orphan')
 
     @property
     def tickets_reserved(self):
@@ -188,7 +103,7 @@ class Reservation(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     paid_at = db.Column(db.DateTime)
-    paid_to_admin_id = db.Column(db.Integer, db.ForeignKey('admins.id'))
+    paid_to_admin_id = db.Column(db.Integer)  # stores SolStack user_id of who marked paid
 
     logs = db.relationship('ReservationLog', backref='reservation', lazy=True,
                            order_by='ReservationLog.created_at')
@@ -227,8 +142,6 @@ class ReservationLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     reservation_id = db.Column(db.Integer, db.ForeignKey('reservations.id'), nullable=False)
     action = db.Column(db.String(30), nullable=False)
-    admin_id = db.Column(db.Integer, db.ForeignKey('admins.id'))
+    admin_id = db.Column(db.Integer)  # stores SolStack user_id of who took action
     notes = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    admin = db.relationship('Admin', lazy=True)

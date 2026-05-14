@@ -88,41 +88,62 @@
         </div>
     </div>
 
-    {% if current_user.role_exact in ('global_admin', 'owner') %}
-    {% set mgr_list = all_managers | selectattr('role', 'equalto', 'event_manager') | list %}
-    {% set sec_list = all_managers | selectattr('role', 'equalto', 'event_security') | list %}
+    {% if current_user.is_full_access %}
+    {% set staff_event_list = event_staff | selectattr('role', 'equalto', 'staff_event') | list %}
+    {% set staff_security_list = event_staff | selectattr('role', 'equalto', 'staff_security') | list %}
     <div class="field-group">
-        <p class="field-group-label">Event Managers</p>
-        {% for mgr in mgr_list %}
+        <p class="field-group-label">Event Staff</p>
+        {% for s in staff_event_list %}
         <div class="field-row">
-            <span style="flex: 1; font-size: 0.95rem;">{{ mgr.name }}</span>
-            <input type="checkbox" name="manager_ids" value="{{ mgr.id }}"
-                   {% if mgr in event.managers %}checked{% endif %}
-                   style="width: 20px; height: 20px;">
+            <span style="flex: 1; font-size: 0.95rem;">{{ s.name }}</span>
+            <form method="POST" action="{{ url_for('admin_event_staff_remove', event_id=event.id, staff_id=s.id) }}" style="margin: 0;">
+                <button type="submit" class="btn btn-sm" style="background: var(--danger); padding: 4px 10px; font-size: 0.75rem;">Remove</button>
+            </form>
         </div>
         {% endfor %}
-        {% if not mgr_list %}
-        <div class="field-row">
-            <span style="font-size: 0.85rem; color: var(--text3);">No event managers created yet</span>
-        </div>
+        {% if not staff_event_list %}
+        <div class="field-row"><span style="font-size: 0.85rem; color: var(--text3);">No event staff assigned</span></div>
         {% endif %}
     </div>
     <div class="field-group">
         <p class="field-group-label">Security Staff</p>
-        {% for sec in sec_list %}
+        {% for s in staff_security_list %}
         <div class="field-row">
-            <span style="flex: 1; font-size: 0.95rem;">{{ sec.name }}</span>
-            <input type="checkbox" name="manager_ids" value="{{ sec.id }}"
-                   {% if sec in event.managers %}checked{% endif %}
-                   style="width: 20px; height: 20px;">
+            <span style="flex: 1; font-size: 0.95rem;">{{ s.name }}</span>
+            <form method="POST" action="{{ url_for('admin_event_staff_remove', event_id=event.id, staff_id=s.id) }}" style="margin: 0;">
+                <button type="submit" class="btn btn-sm" style="background: var(--danger); padding: 4px 10px; font-size: 0.75rem;">Remove</button>
+            </form>
         </div>
         {% endfor %}
-        {% if not sec_list %}
-        <div class="field-row">
-            <span style="font-size: 0.85rem; color: var(--text3);">No security staff created yet</span>
-        </div>
+        {% if not staff_security_list %}
+        <div class="field-row"><span style="font-size: 0.85rem; color: var(--text3);">No security staff assigned</span></div>
         {% endif %}
     </div>
+    {% if available_users %}
+    <div class="field-group">
+        <p class="field-group-label">Assign Staff</p>
+        <form method="POST" action="{{ url_for('admin_event_staff_add', event_id=event.id) }}">
+            <div class="field-row">
+                <label for="user_id">Person</label>
+                <select id="user_id" name="user_id" style="flex: 1;">
+                    {% for u in available_users %}
+                    <option value="{{ u.id }}">{{ u.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field-row">
+                <label for="staff_role">Role</label>
+                <select id="staff_role" name="role" style="flex: 1;">
+                    <option value="staff_event">Event Staff</option>
+                    <option value="staff_security">Security</option>
+                </select>
+            </div>
+            <div style="padding: 10px 14px;">
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Add</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
     {% endif %}
 
     <div class="field-group">

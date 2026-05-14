@@ -119,7 +119,7 @@
             <tr>
                 <td style="white-space: nowrap;">{{ log.created_at.strftime('%d %b %Y, %H:%M:%S') }}</td>
                 <td><span class="badge badge-{{ log.action }}">{{ log.action }}</span></td>
-                <td>{{ log.admin.name if log.admin else '—' }}</td>
+                <td>{{ staff_names.get(log.admin_id, '—') }}</td>
                 <td>{{ log.notes or '' }}</td>
             </tr>
             {% endfor %}

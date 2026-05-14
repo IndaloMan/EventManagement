@@ -59,10 +59,48 @@
             font-size: 0.9rem;
             font-weight: 600;
         }
+        @page {
+            size: 50mm auto;
+            margin: 2mm;
+        }
         @media print {
-            body { background: #fff; }
-            .ticket { border: 2px solid #000; margin: 0 auto; }
+            body { background: #fff; margin: 0; padding: 0; }
             .no-print { display: none; }
+            .ticket {
+                width: 46mm;
+                margin: 0;
+                border: none;
+                border-radius: 0;
+                background: #fff;
+            }
+            .ticket-header {
+                background: #fff;
+                color: #000;
+                padding: 2mm 0;
+                border-bottom: 0.5mm solid #000;
+            }
+            .ticket-header h1 { font-size: 9pt; }
+            .ticket-body { padding: 2mm 0; }
+            .ticket-event { font-size: 10pt; margin-bottom: 1mm; }
+            .ticket-date { font-size: 7pt; color: #000; margin-bottom: 2mm; }
+            .ticket-qr { margin: 2mm 0; }
+            .ticket-qr img { width: 42mm; height: 42mm; }
+            .ticket-ref { font-size: 14pt; letter-spacing: 2px; margin: 2mm 0; font-family: monospace; }
+            .ticket-details { font-size: 7pt; color: #000; margin-bottom: 1mm; }
+            .ticket-paid {
+                background: #000;
+                color: #fff;
+                padding: 1mm 4mm;
+                border-radius: 0;
+                font-size: 7pt;
+                margin-top: 2mm;
+            }
+            .ticket-footer {
+                border-top: 0.5mm dashed #000;
+                padding: 2mm 0;
+                font-size: 6pt;
+                color: #000;
+            }
         }
     </style>
 </head>

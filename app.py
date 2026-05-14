@@ -1,35 +1,156 @@
-"""Marina Club Events — multi-business ticket reservation system."""
+"""Event Management — multi-business ticket reservation system (SolStack plugin app)."""
 
 import env  # noqa: F401
 import os
 import re
+import sqlite3
 from PIL import Image
 import uuid
 import stripe
 from functools import wraps
 from datetime import datetime, timedelta, timezone
 from flask import (Flask, render_template, request, redirect, url_for,
-                   flash, send_from_directory, abort, jsonify, Response)
-from flask_login import (LoginManager, login_user, logout_user,
+                   flash, send_from_directory, abort, jsonify, Response, session)
+from flask_login import (LoginManager, UserMixin, login_user, logout_user,
                          login_required, current_user)
 from werkzeug.utils import secure_filename
 from config import Config
-from models import db, Admin, Business, Event, Reservation, ReservationLog, Maintenance, AppSettings, event_managers
+from models import db, Business, Event, Reservation, ReservationLog, Maintenance, AppSettings, EventStaff
 from qr_generator import generate_event_qr, generate_reference_qr_base64
-from email_sender import send_confirmation_email, send_cancellation_email, send_password_reset_email
+from email_sender import send_confirmation_email, send_cancellation_email
 from translations import TRANSLATIONS, SUPPORTED_LANGUAGES, format_date_long, format_date_short
 
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# ── SolStack SSO configuration ─────────────────────────────────────────────
+SOLSTACK_DB_PATH = app.config['SOLSTACK_DB_PATH']
+SOLSTACK_URL = app.config['SOLSTACK_URL']
+SOLSTACK_LOGIN_URL = app.config['SOLSTACK_LOGIN_URL']
+APP_SLUG = 'eventmanagement'
+
+
+class SessionUser(UserMixin):
+    """Lightweight user object reconstructed from Flask session after SolStack SSO handoff."""
+    def __init__(self, user_id, name, email, app_role, location_id=None):
+        self._id = int(user_id)
+        self.name = name
+        self.email = email
+        self.role = app_role
+        self.location_id = location_id
+
+    def get_id(self):
+        return str(self._id)
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def is_global_admin(self):
+        return self.role == 'global_admin'
+
+    @property
+    def is_org_owner(self):
+        return self.role in ('global_admin', 'org_owner')
+
+    @property
+    def is_business_manager(self):
+        return self.role in ('global_admin', 'org_owner', 'business_manager')
+
+    @property
+    def is_full_access(self):
+        return self.role in ('global_admin', 'org_owner', 'business_manager')
+
+    @property
+    def is_staff_event(self):
+        return self.role == 'staff_event'
+
+    @property
+    def is_staff_security(self):
+        return self.role == 'staff_security'
+
+    @property
+    def is_staff_bar(self):
+        return self.role == 'staff_bar'
+
+    @property
+    def can_mark_paid(self):
+        return self.role in ('global_admin', 'org_owner', 'business_manager', 'staff_event', 'staff_bar')
+
+    @property
+    def can_admit(self):
+        return self.role in ('global_admin', 'org_owner', 'business_manager', 'staff_event', 'staff_security')
+
+    @property
+    def can_comp(self):
+        return self.role in ('global_admin', 'org_owner', 'business_manager', 'staff_event')
+
+    def role_display(self):
+        return self.role.replace('_', ' ').title()
+
+
+def _validate_auth_token(token_str):
+    """Validate and consume an AuthToken from solstack.db. Returns user-info dict or None."""
+    try:
+        conn = sqlite3.connect(SOLSTACK_DB_PATH)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT user_id, user_name, user_email, app_slug, app_role, location_id, "
+            "expires_at, used FROM auth_tokens WHERE token = ?",
+            (token_str,)
+        ).fetchone()
+        if not row:
+            conn.close()
+            return None
+        expires_at = datetime.fromisoformat(row['expires_at'])
+        if row['used'] or expires_at < datetime.utcnow() or row['app_slug'] != APP_SLUG:
+            conn.close()
+            return None
+        conn.execute("UPDATE auth_tokens SET used = 1 WHERE token = ?", (token_str,))
+        conn.commit()
+        conn.close()
+        return {
+            'user_id': row['user_id'],
+            'user_name': row['user_name'],
+            'user_email': row['user_email'],
+            'app_role': row['app_role'],
+            'location_id': row['location_id'],
+        }
+    except Exception:
+        return None
+
+
+def _get_solstack_users_for_app():
+    """Return list of user dicts for all users with eventmanagement access in SolStack."""
+    try:
+        conn = sqlite3.connect(SOLSTACK_DB_PATH)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT DISTINCT u.id, u.name, u.email, uar.app_role "
+            "FROM users u "
+            "JOIN user_app_roles uar ON uar.user_id = u.id "
+            "JOIN apps a ON a.id = uar.app_id "
+            "WHERE a.slug = ? AND u.is_active = 1 "
+            "ORDER BY u.name",
+            (APP_SLUG,)
+        ).fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
+
+
+# ── Flask app setup ────────────────────────────────────────────────────────
 db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'admin_login'
+login_manager.login_message = ''
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'}
 
 PUBLIC_ROUTES = ('index', 'business_events', 'business_flyer', 'reserve', 'reservation_manage',
-                 'embed_event', 'embed_business', 'static', 'manifest_json', 'login_redirect',
+                 'embed_event', 'embed_business', 'static', 'manifest_json',
                  'stripe_checkout', 'stripe_success', 'stripe_cancel', 'stripe_webhook')
 
 
@@ -62,7 +183,15 @@ def check_maintenance():
 
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.get(Admin, int(user_id))
+    if 'user_id' in session and str(session['user_id']) == user_id:
+        return SessionUser(
+            user_id=session['user_id'],
+            name=session.get('user_name', ''),
+            email=session.get('user_email', ''),
+            app_role=session.get('app_role', ''),
+            location_id=session.get('location_id'),
+        )
+    return None
 
 
 def allowed_file(filename):
@@ -71,22 +200,80 @@ def allowed_file(filename):
 
 def global_admin_required(f):
     @wraps(f)
-    @login_required
     def decorated(*args, **kwargs):
-        if not current_user.is_global_admin:
+        if not current_user.is_authenticated or not current_user.is_global_admin:
             abort(403)
         return f(*args, **kwargs)
-    return decorated
+    return login_required(decorated)
 
 
-def owner_or_above(f):
+def full_access_required(f):
+    """Requires global_admin, org_owner, or business_manager."""
     @wraps(f)
-    @login_required
     def decorated(*args, **kwargs):
-        if current_user.role_exact not in ('global_admin', 'owner'):
+        if not current_user.is_authenticated or not current_user.is_full_access:
             abort(403)
         return f(*args, **kwargs)
-    return decorated
+    return login_required(decorated)
+
+
+def staff_event_or_above(f):
+    """Requires staff_event or full_access roles."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not current_user.is_authenticated or (
+            not current_user.is_full_access and not current_user.is_staff_event
+        ):
+            abort(403)
+        return f(*args, **kwargs)
+    return login_required(decorated)
+
+
+def _get_scoped_business():
+    """Returns the Business for current user's location, or None for full-access users."""
+    if current_user.is_full_access:
+        return None
+    loc_id = session.get('location_id')
+    if not loc_id:
+        return None
+    return Business.query.filter_by(solstack_location_id=loc_id, is_active=True).first()
+
+
+def _get_accessible_businesses():
+    """Returns list of Business objects the current user can access."""
+    if current_user.is_full_access:
+        biz = _get_scoped_business()
+        if biz:
+            return [biz]
+        return Business.query.filter_by(is_active=True).all()
+    biz = _get_scoped_business()
+    return [biz] if biz else []
+
+
+def _get_accessible_events():
+    """Returns list of Event objects the current user can see."""
+    if current_user.is_full_access or current_user.is_staff_bar:
+        biz = _get_scoped_business()
+        q = Event.query.order_by(Event.start_time.desc())
+        if biz:
+            q = q.filter_by(business_id=biz.id)
+        return q.all()
+    # staff_event, staff_security: per-event assignment only
+    assignments = EventStaff.query.filter_by(solstack_user_id=current_user.id).all()
+    event_ids = [a.event_id for a in assignments]
+    return Event.query.filter(Event.id.in_(event_ids)).order_by(Event.start_time.desc()).all()
+
+
+def _can_access_event(event):
+    """Returns True if the current user can access the given event."""
+    if current_user.is_full_access or current_user.is_staff_bar:
+        biz = _get_scoped_business()
+        if biz:
+            return event.business_id == biz.id
+        return True
+    return EventStaff.query.filter_by(
+        solstack_user_id=current_user.id, event_id=event.id
+    ).first() is not None
 
 
 def get_event_file(event, file_type, lang='en'):
@@ -438,83 +625,65 @@ def business_flyer(slug):
 
 
 # ---------------------------------------------------------------------------
-# Admin — authentication
+# Admin — authentication (SolStack SSO)
 # ---------------------------------------------------------------------------
 
 @app.route('/login')
-def login_redirect():
-    return redirect(url_for('admin_login'))
-
-
-@app.route('/admin/login', methods=['GET', 'POST'])
+@app.route('/admin/login')
 def admin_login():
+    """Redirect unauthenticated users to SolStack org portal login."""
     if current_user.is_authenticated:
-        return redirect(url_for('admin_dashboard'))
-
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
-        admin = Admin.query.filter_by(username=username).first()
-        if admin and admin.check_password(password):
-            login_user(admin)
-            if admin.role_exact == 'event_security':
-                return redirect(url_for('admin_scan'))
-            if admin.role_exact == 'cashier':
-                return redirect(url_for('admin_reservations'))
-            return redirect(url_for('admin_dashboard'))
-        flash('Invalid username or password.', 'error')
-
-    return render_template('admin/login.html')
+        return redirect(_post_login_url())
+    base = app.config.get('APP_URL', 'http://localhost:5000')
+    callback_url = base.rstrip('/') + '/auth/callback'
+    next_url = request.args.get('next', '')
+    if next_url:
+        session['auth_next'] = next_url
+    return redirect(f'{SOLSTACK_LOGIN_URL}?app={APP_SLUG}&next={callback_url}')
 
 
-@app.route('/admin/logout')
+@app.route('/auth/callback')
+def auth_callback():
+    """Receives SSO token from SolStack, creates Flask session, logs user in."""
+    token_str = request.args.get('token', '')
+    if not token_str:
+        return redirect(url_for('admin_login'))
+    user_info = _validate_auth_token(token_str)
+    if not user_info:
+        flash('Login failed — token invalid or expired. Please try again.', 'error')
+        return redirect(url_for('admin_login'))
+    session['user_id'] = user_info['user_id']
+    session['user_name'] = user_info['user_name']
+    session['user_email'] = user_info['user_email']
+    session['app_role'] = user_info['app_role']
+    session['location_id'] = user_info['location_id']
+    user_obj = SessionUser(
+        user_id=user_info['user_id'],
+        name=user_info['user_name'],
+        email=user_info['user_email'],
+        app_role=user_info['app_role'],
+        location_id=user_info['location_id'],
+    )
+    login_user(user_obj)
+    next_url = session.pop('auth_next', None) or _post_login_url()
+    return redirect(next_url)
+
+
+def _post_login_url():
+    role = getattr(current_user, 'role', '')
+    if role == 'staff_security':
+        return url_for('admin_scan')
+    if role == 'staff_bar':
+        return url_for('admin_reservations')
+    return url_for('admin_dashboard')
+
+
+@app.route('/admin/logout', methods=['GET', 'POST'])
 @login_required
 def admin_logout():
     logout_user()
-    return redirect(url_for('admin_login'))
-
-
-@app.route('/admin/forgot-password', methods=['GET', 'POST'])
-def admin_forgot_password():
-    if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
-        admin = Admin.query.filter(Admin.username.ilike(email)).first()
-        if admin and admin.is_active_admin:
-            token = uuid.uuid4().hex
-            admin.reset_token = token
-            admin.reset_token_expires = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1)
-            db.session.commit()
-            reset_url = f"{app.config['APP_URL']}/admin/reset-password/{token}"
-            send_password_reset_email(app.config, email, reset_url)
-        flash('If an account with that email exists, a reset link has been sent.', 'success')
-        return redirect(url_for('admin_login'))
-    return render_template('admin/forgot_password.html')
-
-
-@app.route('/admin/reset-password/<token>', methods=['GET', 'POST'])
-def admin_reset_password(token):
-    admin = Admin.query.filter_by(reset_token=token).first()
-    if not admin or not admin.reset_token_expires or admin.reset_token_expires < datetime.now(timezone.utc).replace(tzinfo=None):
-        flash('This reset link is invalid or has expired.', 'error')
-        return redirect(url_for('admin_login'))
-
-    if request.method == 'POST':
-        password = request.form.get('password', '')
-        confirm = request.form.get('confirm_password', '')
-        if not password:
-            flash('Password is required.', 'error')
-            return render_template('admin/reset_password.html', token=token)
-        if password != confirm:
-            flash('Passwords do not match.', 'error')
-            return render_template('admin/reset_password.html', token=token)
-        admin.set_password(password)
-        admin.reset_token = None
-        admin.reset_token_expires = None
-        db.session.commit()
-        flash('Password updated. Please sign in.', 'success')
-        return redirect(url_for('admin_login'))
-
-    return render_template('admin/reset_password.html', token=token)
+    session.clear()
+    return redirect(SOLSTACK_URL + '/admin/logout?next=' + SOLSTACK_LOGIN_URL)
 
 
 # ---------------------------------------------------------------------------
@@ -524,8 +693,8 @@ def admin_reset_password(token):
 @app.route('/admin')
 @login_required
 def admin_dashboard():
-    businesses = current_user.get_accessible_businesses()
-    events = current_user.get_accessible_events()
+    businesses = _get_accessible_businesses()
+    events = _get_accessible_events()
     upcoming = [e for e in events if not e.is_past]
     pending = Reservation.query.filter(
         Reservation.status == 'pending',
@@ -626,148 +795,21 @@ def admin_business_edit(biz_id):
 
 
 # ---------------------------------------------------------------------------
-# Admin — user management (global admin + owner)
-# ---------------------------------------------------------------------------
-
-@app.route('/admin/users')
-@owner_or_above
-def admin_users():
-    if current_user.is_global_admin:
-        users = Admin.query.order_by(Admin.name).all()
-    else:
-        users = Admin.query.filter(
-            Admin.role.in_(['event_manager', 'event_security', 'cashier'])
-        ).order_by(Admin.name).all()
-    return render_template('admin/users.html', users=users)
-
-
-@app.route('/admin/users/new', methods=['GET', 'POST'])
-@owner_or_above
-def admin_user_new():
-    if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
-        name = request.form.get('name', '').strip()
-        password = request.form.get('password', '')
-        role = request.form.get('role', 'event_manager')
-
-        if not current_user.is_global_admin:
-            if role not in ('event_manager', 'event_security', 'cashier'):
-                role = 'event_manager'
-
-        form_data = {
-            'name': name,
-            'phone': request.form.get('phone', '').strip(),
-            'role': role,
-            'business_ids': request.form.getlist('business_ids'),
-            'event_ids': request.form.getlist('event_ids'),
-        }
-        businesses = Business.query.filter_by(is_active=True).all()
-        events = current_user.get_accessible_events()
-
-        if not email or not name or not password:
-            flash('Email, name and password are required.', 'error')
-            return render_template('admin/user_form.html', user=None, businesses=businesses, events=events, form_data=form_data)
-
-        if not re.match(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$', email):
-            flash('Please enter a valid email address.', 'error')
-            return render_template('admin/user_form.html', user=None, businesses=businesses, events=events, form_data=form_data)
-
-        if Admin.query.filter(Admin.username.ilike(email)).first():
-            flash('A user with that email already exists.', 'error')
-            return render_template('admin/user_form.html', user=None, businesses=businesses, events=events, form_data=form_data)
-
-        admin = Admin(
-            username=email,
-            name=name,
-            email=email,
-            phone=request.form.get('phone', '').strip(),
-            role=role,
-        )
-        admin.set_password(password)
-
-        if role in ('owner', 'cashier'):
-            biz_ids = request.form.getlist('business_ids')
-            for bid in biz_ids:
-                biz = db.session.get(Business, int(bid))
-                if biz:
-                    admin.businesses.append(biz)
-
-        if role in ('event_manager', 'event_security'):
-            for eid in request.form.getlist('event_ids'):
-                event = db.session.get(Event, int(eid))
-                if event:
-                    admin.managed_events.append(event)
-
-        db.session.add(admin)
-        db.session.commit()
-        flash(f'User "{name}" created.', 'success')
-        return redirect(url_for('admin_users'))
-
-    businesses = Business.query.filter_by(is_active=True).all()
-    events = current_user.get_accessible_events()
-    return render_template('admin/user_form.html', user=None, businesses=businesses, events=events)
-
-
-@app.route('/admin/users/<int:user_id>', methods=['GET', 'POST'])
-@owner_or_above
-def admin_user_edit(user_id):
-    user = db.session.get(Admin, user_id)
-    if not user:
-        abort(404)
-
-    if not current_user.is_global_admin and user.role not in ('event_manager', 'event_security', 'cashier'):
-        abort(403)
-
-    if request.method == 'POST':
-        user.name = request.form.get('name', '').strip()
-        user.email = request.form.get('email', '').strip()
-        user.phone = request.form.get('phone', '').strip()
-        user.is_active_admin = 'is_active_admin' in request.form
-
-        if current_user.is_global_admin:
-            user.role = request.form.get('role', user.role)
-        if user.role in ('owner', 'cashier'):
-            user.businesses.clear()
-            for bid in request.form.getlist('business_ids'):
-                biz = db.session.get(Business, int(bid))
-                if biz:
-                    user.businesses.append(biz)
-        if user.role in ('event_manager', 'event_security'):
-            user.managed_events.clear()
-            for eid in request.form.getlist('event_ids'):
-                event = db.session.get(Event, int(eid))
-                if event:
-                    user.managed_events.append(event)
-
-        new_password = request.form.get('password', '').strip()
-        if new_password:
-            user.set_password(new_password)
-
-        db.session.commit()
-        flash('User updated.', 'success')
-        return redirect(url_for('admin_users'))
-
-    businesses = Business.query.filter_by(is_active=True).all()
-    events = current_user.get_accessible_events()
-    return render_template('admin/user_form.html', user=user, businesses=businesses, events=events)
-
-
-# ---------------------------------------------------------------------------
 # Admin — events
 # ---------------------------------------------------------------------------
 
 @app.route('/admin/events')
 @login_required
 def admin_events():
-    events = current_user.get_accessible_events()
+    events = _get_accessible_events()
     return render_template('admin/events.html', events=events)
 
 
 @app.route('/admin/events/new', methods=['GET', 'POST'])
-@owner_or_above
+@staff_event_or_above
 def admin_event_new():
     """Manually create an event (without Google Calendar)."""
-    businesses = current_user.get_accessible_businesses()
+    businesses = _get_accessible_businesses()
 
     if request.method == 'POST':
         business_id = int(request.form.get('business_id', 0))
@@ -780,7 +822,7 @@ def admin_event_new():
             return render_template('admin/event_form.html', businesses=businesses)
 
         biz = db.session.get(Business, business_id)
-        if not biz or not current_user.can_access_business(biz):
+        if not biz or biz not in businesses:
             abort(403)
 
         start_time = datetime.strptime(f'{start_date}T{start_time_val}', '%Y-%m-%dT%H:%M')
@@ -839,19 +881,16 @@ def admin_event_new():
 
 
 @app.route('/admin/events/<int:event_id>', methods=['GET', 'POST'])
-@login_required
+@staff_event_or_above
 def admin_event_detail(event_id):
     """Configure event details and manage its reservations."""
     event = db.session.get(Event, event_id)
     if not event:
         abort(404)
-    if not current_user.can_access_event(event):
+    if not _can_access_event(event):
         abort(403)
 
     if request.method == 'POST':
-        if current_user.role_exact == 'event_manager' and event not in current_user.managed_events:
-            abort(403)
-
         title = request.form.get('title', '').strip()
         if title:
             event.title = title
@@ -894,25 +933,57 @@ def admin_event_detail(event_id):
             _save_event_file(request.files.get(f'terms_{lang_code}'),
                              event.event_code, 'terms', lang_code)
 
-        if current_user.role_exact in ('global_admin', 'owner'):
-            event.managers.clear()
-            for mid in request.form.getlist('manager_ids'):
-                mgr = db.session.get(Admin, int(mid))
-                if mgr and mgr.role in ('event_manager', 'event_security'):
-                    event.managers.append(mgr)
-
         db.session.commit()
         flash('Event updated.', 'success')
         return redirect(url_for('admin_event_detail', event_id=event.id))
 
     reservations = Reservation.query.filter_by(event_id=event.id).order_by(
         Reservation.created_at.desc()).all()
-    all_managers = Admin.query.filter(
-        Admin.role.in_(['event_manager', 'event_security']),
-        Admin.is_active_admin == True).all()
+    event_staff = EventStaff.query.filter_by(event_id=event_id).order_by(
+        EventStaff.role, EventStaff.name).all()
+    available_users = _get_solstack_users_for_app() if current_user.is_full_access else []
     return render_template('admin/event_detail.html',
                            event=event, reservations=reservations,
-                           all_managers=all_managers)
+                           event_staff=event_staff, available_users=available_users)
+
+
+@app.route('/admin/events/<int:event_id>/staff/add', methods=['POST'])
+@full_access_required
+def admin_event_staff_add(event_id):
+    event = db.session.get(Event, event_id)
+    if not event or not _can_access_event(event):
+        abort(403)
+    user_id = request.form.get('user_id', type=int)
+    role = request.form.get('role', '').strip()
+    if not user_id or role not in ('staff_event', 'staff_security'):
+        flash('Invalid staff assignment.', 'error')
+        return redirect(url_for('admin_event_detail', event_id=event_id))
+    users = _get_solstack_users_for_app()
+    user = next((u for u in users if u['id'] == user_id), None)
+    if not user:
+        flash('User not found in SolStack.', 'error')
+        return redirect(url_for('admin_event_detail', event_id=event_id))
+    existing = EventStaff.query.filter_by(
+        event_id=event_id, solstack_user_id=user_id, role=role).first()
+    if not existing:
+        db.session.add(EventStaff(
+            event_id=event_id,
+            solstack_user_id=user_id,
+            role=role,
+            name=user['name'],
+            email=user['email'],
+        ))
+        db.session.commit()
+    return redirect(url_for('admin_event_detail', event_id=event_id))
+
+
+@app.route('/admin/events/<int:event_id>/staff/<int:staff_id>/remove', methods=['POST'])
+@full_access_required
+def admin_event_staff_remove(event_id, staff_id):
+    staff = EventStaff.query.filter_by(id=staff_id, event_id=event_id).first_or_404()
+    db.session.delete(staff)
+    db.session.commit()
+    return redirect(url_for('admin_event_detail', event_id=event_id))
 
 
 @app.route('/admin/events/<int:event_id>/qr')
@@ -922,7 +993,7 @@ def admin_generate_qr(event_id):
     event = db.session.get(Event, event_id)
     if not event:
         abort(404)
-    if not current_user.can_access_event(event):
+    if not _can_access_event(event):
         abort(403)
 
     filename = generate_event_qr(event.id, app.config['APP_URL'],
@@ -941,20 +1012,26 @@ def admin_reservation_detail(res_id):
     reservation = db.session.get(Reservation, res_id)
     if not reservation:
         abort(404)
-    if not current_user.can_access_event(reservation.event):
+    if not _can_access_event(reservation.event):
         abort(403)
     logs = ReservationLog.query.filter_by(reservation_id=reservation.id).order_by(
         ReservationLog.created_at).all()
+    unique_ids = {log.admin_id for log in logs if log.admin_id}
+    staff_names = {}
+    if unique_ids:
+        for u in _get_solstack_users_for_app():
+            if u['id'] in unique_ids:
+                staff_names[u['id']] = u['name']
     return render_template('admin/reservation_detail.html',
                            reservation=reservation,
                            event=reservation.event,
-                           logs=logs)
+                           logs=logs, staff_names=staff_names)
 
 
 @app.route('/admin/reservations')
 @login_required
 def admin_reservations():
-    accessible_events = current_user.get_accessible_events()
+    accessible_events = _get_accessible_events()
     event_ids = [e.id for e in accessible_events]
 
     event_id = request.args.get('event_id', type=int)
@@ -984,7 +1061,7 @@ def admin_update_reservation(res_id):
     reservation = db.session.get(Reservation, res_id)
     if not reservation:
         abort(404)
-    if not current_user.can_access_event(reservation.event):
+    if not _can_access_event(reservation.event):
         abort(403)
 
     new_status = request.form.get('status')
@@ -1010,7 +1087,7 @@ def admin_print_ticket(res_id):
     reservation = db.session.get(Reservation, res_id)
     if not reservation:
         abort(404)
-    if not current_user.can_access_event(reservation.event):
+    if not _can_access_event(reservation.event):
         abort(403)
 
     qr_base64 = generate_reference_qr_base64(
@@ -1042,16 +1119,22 @@ def admin_scan_lookup(reference_code):
         flash('Ticket not found.', 'error')
         return render_template('admin/scan.html')
 
-    if not current_user.can_access_event(reservation.event):
+    if not _can_access_event(reservation.event):
         abort(403)
 
     already_scanned = ReservationLog.query.filter_by(
         reservation_id=reservation.id, action='scanned_in').first()
-
+    unique_ids = {log.admin_id for log in reservation.logs if log.admin_id}
+    staff_names = {}
+    if unique_ids:
+        for u in _get_solstack_users_for_app():
+            if u['id'] in unique_ids:
+                staff_names[u['id']] = u['name']
     return render_template('admin/scan_result.html',
                            reservation=reservation,
                            event=reservation.event,
-                           already_scanned=already_scanned)
+                           already_scanned=already_scanned,
+                           staff_names=staff_names)
 
 
 @app.route('/admin/scan/<reference_code>/admit', methods=['POST'])
@@ -1061,7 +1144,7 @@ def admin_scan_admit(reference_code):
         reference_code=reference_code.upper()).first()
     if not reservation:
         abort(404)
-    if not current_user.can_access_event(reservation.event):
+    if not _can_access_event(reservation.event):
         abort(403)
 
     already_scanned = ReservationLog.query.filter_by(
@@ -1084,7 +1167,7 @@ def admin_scan_admit(reference_code):
 @login_required
 def admin_scan_pay(reference_code):
     reservation = Reservation.query.filter_by(reference_code=reference_code.upper()).first_or_404()
-    if not current_user.can_access_event(reservation.event):
+    if not _can_access_event(reservation.event):
         abort(403)
     if reservation.status == 'pending':
         reservation.status = 'paid'
@@ -1100,7 +1183,7 @@ def admin_scan_pay(reference_code):
 @login_required
 def admin_scan_cancel(reference_code):
     reservation = Reservation.query.filter_by(reference_code=reference_code.upper()).first_or_404()
-    if not current_user.can_access_event(reservation.event):
+    if not _can_access_event(reservation.event):
         abort(403)
     if reservation.status == 'pending':
         reservation.status = 'cancelled'
@@ -1114,10 +1197,10 @@ def admin_scan_cancel(reference_code):
 @app.route('/admin/scan/<reference_code>/comp', methods=['POST'])
 @login_required
 def admin_scan_comp(reference_code):
-    if not current_user.is_event_manager:
+    if not current_user.can_comp:
         abort(403)
     reservation = Reservation.query.filter_by(reference_code=reference_code.upper()).first_or_404()
-    if not current_user.can_access_event(reservation.event):
+    if not _can_access_event(reservation.event):
         abort(403)
     if reservation.status == 'pending':
         reservation.status = 'paid'
@@ -1138,7 +1221,7 @@ def admin_scan_comp(reference_code):
 @app.route('/admin/reports')
 @login_required
 def admin_reports():
-    events = current_user.get_accessible_events()
+    events = _get_accessible_events()
     report_data = []
     for event in events:
         reservations = Reservation.query.filter_by(event_id=event.id).all()
@@ -1165,7 +1248,7 @@ def admin_reports():
 @login_required
 def admin_report_reservations(event_id):
     event = db.session.get(Event, event_id)
-    if not event or not current_user.can_access_event(event):
+    if not event or not _can_access_event(event):
         abort(403)
     status_filter = request.args.get('status', '')
     query = Reservation.query.filter_by(event_id=event.id)
@@ -1181,10 +1264,13 @@ def admin_report_reservations(event_id):
 @login_required
 def admin_report_booking(res_id):
     reservation = db.session.get(Reservation, res_id)
-    if not reservation or not current_user.can_access_event(reservation.event):
+    if not reservation or not _can_access_event(reservation.event):
         abort(403)
+    solstack_users = _get_solstack_users_for_app()
+    staff_names = {u['id']: u['name'] for u in solstack_users}
     return render_template('admin/report_booking.html',
-                           reservation=reservation, event=reservation.event)
+                           reservation=reservation, event=reservation.event,
+                           staff_names=staff_names)
 
 
 # ---------------------------------------------------------------------------
@@ -1223,7 +1309,7 @@ def admin_maintenance():
 # ---------------------------------------------------------------------------
 
 @app.route('/admin/settings', methods=['GET', 'POST'])
-@owner_or_above
+@full_access_required
 def admin_settings():
     settings = AppSettings.query.first()
     if not settings:
@@ -1527,14 +1613,14 @@ def stripe_webhook():
 # ---------------------------------------------------------------------------
 
 def init_db():
-    """Create tables and default global admin if none exists."""
+    """Create tables and run schema migrations."""
     with app.app_context():
         db.create_all()
         with db.engine.connect() as conn:
-            cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(admins)"))]
-            if 'reset_token' not in cols:
-                conn.execute(db.text("ALTER TABLE admins ADD COLUMN reset_token VARCHAR(64)"))
-                conn.execute(db.text("ALTER TABLE admins ADD COLUMN reset_token_expires DATETIME"))
+            # Migrate businesses: add solstack_location_id if missing
+            biz_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(businesses)"))]
+            if 'solstack_location_id' not in biz_cols:
+                conn.execute(db.text("ALTER TABLE businesses ADD COLUMN solstack_location_id INTEGER"))
                 conn.commit()
             event_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(events)"))]
             if 'end_time_text' not in event_cols:
@@ -1577,15 +1663,15 @@ def init_db():
                 conn.execute(db.text("ALTER TABLE app_settings ADD COLUMN stripe_secret_key VARCHAR(256)"))
                 conn.execute(db.text("ALTER TABLE app_settings ADD COLUMN stripe_webhook_secret VARCHAR(256)"))
                 conn.commit()
+        with db.engine.connect() as conn:
+            # Drop legacy tables no longer used after SolStack SSO integration
+            conn.execute(db.text("DROP TABLE IF EXISTS admin_businesses"))
+            conn.execute(db.text("DROP TABLE IF EXISTS event_managers"))
+            conn.execute(db.text("DROP TABLE IF EXISTS admins"))
+            conn.commit()
         for ev in Event.query.filter(Event.event_code == None).all():
             ev.event_code = generate_event_code()
         db.session.commit()
-        if not Admin.query.first():
-            admin = Admin(username='admin', name='Global Admin', role='global_admin')
-            admin.set_password('changeme')
-            db.session.add(admin)
-            db.session.commit()
-            print("Default admin created — username: admin, password: changeme")
         if not Maintenance.query.first():
             db.session.add(Maintenance())
             db.session.commit()

@@ -102,7 +102,7 @@
             {% for log in logs | reverse %}
             <tr>
                 <td><span class="badge badge-{{ log.action }}">{{ log.action }}</span></td>
-                <td style="font-size: 0.8rem;">{{ log.admin.name if log.admin else '—' }}</td>
+                <td style="font-size: 0.8rem;">{{ staff_names.get(log.admin_id, '—') }}</td>
                 <td style="font-size: 0.8rem; color: var(--text2);">{{ log.notes or '' }}</td>
                 <td style="font-size: 0.8rem; white-space: nowrap;">{{ log.created_at.strftime('%a %d %b %Y, %H:%M:%S') }}</td>
             </tr>

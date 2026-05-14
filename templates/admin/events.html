@@ -4,7 +4,7 @@
 <p class="section-title">All Events</p>
 
 <div class="btn-row" style="margin-bottom: 16px;">
-    {% if current_user.role_exact in ('global_admin', 'owner') %}
+    {% if current_user.is_full_access or current_user.is_staff_event %}
     <a href="{{ url_for('admin_event_new') }}" class="btn btn-success" style="flex: 1;">New Event</a>
     {% endif %}
     <a href="{{ url_for('admin_dashboard') }}" class="btn btn-back" style="flex: 1;">Back</a>
@@ -27,10 +27,10 @@
             {{ event.tickets_reserved }} reserved
             {% if event.max_capacity > 0 %} / {{ event.max_capacity }}{% endif %}
         </p>
-        {% set mgrs = event.managers | selectattr('role', 'equalto', 'event_manager') | list %}
-        {% set sec = event.managers | selectattr('role', 'equalto', 'event_security') | list %}
-        <p style="font-size: 0.8rem; color: var(--text3); margin-top: 4px;">Managed by: {{ mgrs | map(attribute='name') | join(', ') or 'None' }}</p>
-        <p style="font-size: 0.8rem; color: var(--text3); margin-top: 2px;">Security: {{ sec | map(attribute='name') | join(', ') or 'None' }}</p>
+        {% set staff_evt = event.staff | selectattr('role', 'equalto', 'staff_event') | list %}
+        {% set staff_sec = event.staff | selectattr('role', 'equalto', 'staff_security') | list %}
+        <p style="font-size: 0.8rem; color: var(--text3); margin-top: 4px;">Staff: {{ staff_evt | map(attribute='name') | join(', ') or 'None' }}</p>
+        <p style="font-size: 0.8rem; color: var(--text3); margin-top: 2px;">Security: {{ staff_sec | map(attribute='name') | join(', ') or 'None' }}</p>
         {% if event.is_past %}
         <span class="badge badge-cancelled" style="margin: 6px 0;">Past</span>
         {% endif %}

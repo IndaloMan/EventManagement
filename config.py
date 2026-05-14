@@ -16,3 +16,9 @@ class Config:
     SMTP_PORT = 465
     SMTP_EMAIL = os.environ.get('SMTP_EMAIL', '')
     SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
+    SOLSTACK_DB_PATH = os.environ.get(
+        'SOLSTACK_DB_PATH',
+        os.path.join(BASE_DIR, '..', 'SolStack', 'solstack.db')
+    )
+    SOLSTACK_URL = os.environ.get('SOLSTACK_URL', 'http://localhost:5004')
+    SOLSTACK_LOGIN_URL = os.environ.get('SOLSTACK_LOGIN_URL', 'http://localhost:5004/login')

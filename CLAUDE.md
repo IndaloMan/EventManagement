@@ -11,17 +11,24 @@ Multi-business event ticket reservation system for Marina Club Gastrobar, Torre 
 - **QR Codes:** Generated per event, placed on printed posters, links to `/reserve/EVENT_ID`
 
 ## User Roles
+All authentication is via SolStack SSO — there are no local user accounts. Roles are assigned in SolStack under the `eventmanagement` app.
+
 | Role | Scope |
 |---|---|
-| Global Admin (IndaloMan) | Full access — all businesses, users, events, settings |
-| Owner | Manages their businesses, assigns event managers to events |
-| Event Manager | Manages reservations for assigned events only (can span multiple businesses) |
-| Event Security | Scan-only access — admit paid tickets at the door |
-| Cashier | Reservations list + mark as paid at the bar |
+| `global_admin` | Full access — all businesses, all events, settings (SolStack platform role) |
+| `org_owner` | Full access to everything in the org instance — same as global_admin within EventManagement |
+| `business_manager` | Full access to their location's business only (scoped by solstack_location_id) |
+| `staff_event` | Per-event assignment — can create and manage their assigned events + reservations |
+| `staff_security` | Per-event assignment — scan/admit at the door only |
+| `staff_bar` | Location-scoped — view all reservations for their location, mark as paid |
+
+`is_full_access` = global_admin, org_owner, business_manager (full admin panel access)  
+`staff_event` and `staff_security` are assigned per-event via the `event_staff` table.  
+`staff_bar` is location-scoped only (not per-event).
 
 ## Reservation Flow
 1. Admin creates event in Google Calendar
-2. Admin syncs calendar in the app, sets price/capacity/poster/managers, chooses payment mode (cash / online / both)
+2. Admin syncs calendar in the app, sets price/capacity/poster/staff assignments, chooses payment mode (cash / online / both)
 3. Admin downloads QR code for the event poster
 4. User finds event on business website (iframe) or scans QR on poster
 5. User submits reservation (name, phone, optional email, ticket count)
@@ -30,14 +37,14 @@ Multi-business event ticket reservation system for Marina Club Gastrobar, Torre 
 8. **Both mode:** User chooses online or at-the-bar at reservation time.
 
 ## Database Tables
-- `businesses` — name, slug, address, phone, email, website, google_calendar_id, logo
-- `admins` — username, password_hash, name, email, phone, role (global_admin/owner/event_manager/event_security/cashier)
-- `admin_businesses` — links owners to businesses
+- `businesses` — name, slug, address, phone, email, website, google_calendar_id, logo, **solstack_location_id** (links to SolStack Location)
 - `events` — business_id, gcal_event_id, event_code (6-char unique ID), title, dates, price, capacity, includes, dress_code, poster, terms, is_active, payment_mode (cash/stripe/both)
-- `event_managers` — links event managers to events
+- `event_staff` — per-event staff assignments: event_id, solstack_user_id, role (staff_event/staff_security), name (snapshot), email
 - `reservations` — event_id, reference_code, name, email, phone, num_tickets, status (pending/paid/cancelled), is_comp, stripe_payment_intent_id
 - `app_settings` — singleton (id=1): promo_display_name, promo_full_name, promo_description, smtp_email, smtp_password, smtp_from_name, stripe_publishable_key, stripe_secret_key, stripe_webhook_secret
-- `reservation_logs` — audit trail: reservation_id, admin_id, action, notes, created_at
+- `reservation_logs` — audit trail: reservation_id, admin_id (SolStack user_id), action, notes, created_at
+
+**Removed tables (post SolStack integration):** `admins`, `admin_businesses`, `event_managers`
 
 ## Key URLs
 | URL | Purpose |
@@ -47,23 +54,30 @@ Multi-business event ticket reservation system for Marina Club Gastrobar, Torre 
 | `/reservation/<reference_code>` | Guest self-service — view/update/cancel reservation |
 | `/embed/b/<slug>` | Embeddable event listing (no header/nav) |
 | `/embed/<event_id>` | Embeddable reservation form |
+| `/login` | SSO redirect → SolStack login (no local login form) |
+| `/admin/login` | SSO redirect (alias) |
+| `/auth/callback` | SSO callback — validates SolStack token, creates session |
+| `/admin/logout` | Clears session, redirects to SolStack logout |
 | `/admin` | Admin dashboard |
-| `/admin/businesses` | Business CRUD (global admin only) |
-| `/admin/users` | User management (global admin + owner) |
+| `/admin/businesses` | Business CRUD (full_access only) |
 | `/admin/events` | Event list + sync |
-| `/admin/events/<id>` | Event config + reservations + manager assignment |
+| `/admin/events/<id>` | Event config + reservations + staff assignment |
+| `/admin/events/<id>/staff/add` | Add staff_event or staff_security to event |
+| `/admin/events/<id>/staff/remove/<staff_id>` | Remove staff from event |
 | `/admin/events/new` | Create manual event (no GCal required) |
 | `/admin/reservations` | All reservations (filterable by event/status) |
 | `/admin/reservations/<id>` | Reservation detail + audit trail |
 | `/admin/reports` | Revenue and ticket stats per event |
 | `/admin/scan` | QR scan entry point |
 | `/admin/scan/<reference_code>` | Scan result — pay / comp / admit / cancel |
-| `/admin/settings` | App name + SMTP email settings (owner+) |
-| `/admin/maintenance` | DB maintenance tools (global admin only) |
+| `/admin/settings` | App name + SMTP email settings (full_access+) |
+| `/admin/maintenance` | DB maintenance tools (full_access only) |
 | `/stripe/checkout/<reference_code>` | Create Stripe Checkout session for a reservation |
 | `/stripe/success` | Stripe payment success landing — marks reservation paid |
 | `/stripe/cancel` | Stripe payment cancel landing — returns user to reservation |
 | `/stripe/webhook` | Stripe webhook endpoint — handles async payment events |
+
+**Removed URLs (post SolStack integration):** `/admin/users`, `/admin/users/new`, `/admin/users/<id>/edit`, `/admin/forgot-password`, `/admin/reset-password/<token>`
 
 ## File Structure
 ```
@@ -81,21 +95,25 @@ templates/          — Jinja2 templates (base, public pages, admin pages)
 ```
 
 ## Key Behaviours
+- **SSO auth:** `_validate_auth_token()` reads `solstack.db` directly to validate one-use 5-minute TTL tokens. `SessionUser` rebuilt from Flask session on each request (no local DB query). `APP_SLUG = 'eventmanagement'`.
+- **Scoping:** `_get_scoped_business()` returns None for full_access roles (no filter), or the business matching `session['location_id']` for location-scoped roles. `_get_accessible_events()` returns all events in scope, or only EventStaff-assigned events for staff_event/staff_security.
+- **Audit trail names:** `admin_id` on `reservation_logs` stores SolStack user_id (integer). Templates use a `staff_names = {id: name}` dict passed from the route handler via `_get_solstack_users_for_app()`.
 - **Euro formatting:** `fmt_eur` Jinja2 filter — strips trailing zeros (35.0 → 35, 35.5 → 35.5)
-- **Comp tickets:** `is_comp=True` on a reservation excludes it from revenue reports; requires event_manager role to apply
-- **Audit trail:** Every status change on a reservation is logged to `reservation_logs` with admin and timestamp
+- **Comp tickets:** `is_comp=True` on a reservation excludes it from revenue reports; requires `is_full_access` to apply
 - **Dirty form tracking:** Edit forms show muted Save button until a field changes; `beforeunload` warning on unsaved changes
 - **Hamburger menu:** Mobile only (≤768px), right-anchored, auto-width to content, UPPERCASE labels
 - **App name:** Configurable via `/admin/settings` — stored in `app_settings`, injected globally via context processor
 - **Event codes:** 6-character unique identifier (e.g. `A3F9C2`) auto-generated per event; displayed read-only on event form
 - **Stripe payments:** Optional per-event — `payment_mode` = `cash` (default), `stripe` (online only), or `both` (guest chooses). Stripe keys configured in `/admin/settings`. On success, reservation auto-marked paid and paid-specific confirmation email sent. Webhook at `/stripe/webhook` handles async confirmation.
 
-## Current Status (11 May 2026)
-- Fully functional and tested locally
+## Current Status (14 May 2026)
+- SolStack SSO integration complete — all local auth removed, SessionUser pattern implemented
+- App starts cleanly, DB migration runs on startup (legacy tables dropped, new columns/tables added)
+- **NOT YET TESTED:** End-to-end SSO flow, role-scoping per role, event staff assignment UI — see `plan.md` in project root
 - Git repo: https://github.com/IndaloMan/EventManagement (private)
 - NOT YET DONE: Google Calendar service account setup, GCloud deployment
-- Stripe payments implemented on `feature/stripe-payments` — requires Stripe keys configured in settings before use
-- Default admin: username `admin`, password `changeme` (created on first run)
+- Stripe payments implemented — requires Stripe keys configured in settings before use
+- No default admin — login requires SolStack SSO; start SolStack on http://localhost:5004 first
 
 ## Businesses (known)
 1. Marina Club Gastrobar — marinaclub.es — Google Calendar: "Marina Club Events"
@@ -107,14 +125,16 @@ templates/          — Jinja2 templates (base, public pages, admin pages)
 pip install -r requirements.txt
 python app.py
 ```
-Opens on http://localhost:5000 — creates `events.db` and default admin on first run.
+Opens on http://localhost:5000 — creates `events.db` and migrates schema on first run.  
+**Requires SolStack running on http://localhost:5004** — all admin login goes through SolStack SSO.  
+Set `SOLSTACK_DB_PATH` env var if SolStack is not at `../SolStack/solstack.db`.
 
 ## Branches
 | Branch | Purpose |
 |---|---|
 | `master` | Stable, deployable at all times |
 | `feature/spanish-language` | English/Spanish public UI translation (in progress) |
-| `feature/stripe-payments` | Optional Stripe online payment per event (in progress) |
+| `feature/stripe-payments` | Optional Stripe online payment per event (merged into master) |
 
 ## Reverting the Spanish Language Change
 If the language feature needs to be abandoned, from any state:

@@ -25,10 +25,10 @@
         </header>
         <ul class="nav-links" id="navLinks">
             {% if current_user.is_authenticated %}
-            {% if current_user.role_exact == 'cashier' %}
+            {% if current_user.is_staff_bar %}
             <li><a href="{{ url_for('admin_reservations') }}">Bookings</a></li>
             <li><a href="{{ url_for('admin_logout') }}">Sign Out</a></li>
-            {% elif current_user.role_exact == 'event_security' %}
+            {% elif current_user.is_staff_security %}
             <li><a href="{{ url_for('admin_scan') }}">Scan</a></li>
             <li><a href="{{ url_for('admin_logout') }}">Sign Out</a></li>
             {% else %}
@@ -37,8 +37,7 @@
             <li><a href="{{ url_for('admin_reservations') }}">Bookings</a></li>
             <li><a href="{{ url_for('admin_scan') }}">Scan</a></li>
             <li><a href="{{ url_for('admin_reports') }}">Reports</a></li>
-            {% if current_user.role_exact in ('global_admin', 'owner') %}
-            <li><a href="{{ url_for('admin_users') }}">Users</a></li>
+            {% if current_user.is_full_access %}
             <li><a href="{{ url_for('admin_settings') }}">Settings</a></li>
             {% endif %}
             {% if current_user.is_global_admin %}
@@ -61,7 +60,7 @@
         </main>
         <nav id="tabs">
             {% if current_user.is_authenticated %}
-            {% if current_user.role_exact == 'cashier' %}
+            {% if current_user.is_staff_bar %}
             <a href="{{ url_for('admin_reservations') }}" class="tab {% if request.endpoint == 'admin_reservations' %}active{% endif %}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22">
                     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
@@ -74,7 +73,7 @@
                 </svg>
                 <span>Sign Out</span>
             </a>
-            {% elif current_user.role_exact == 'event_security' %}
+            {% elif current_user.is_staff_security %}
             <a href="{{ url_for('admin_scan') }}" class="tab {% if request.endpoint in ('admin_scan', 'admin_scan_lookup') %}active{% endif %}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22">
                     <rect x="3" y="3" width="7" height="4"/><rect x="14" y="3" width="7" height="4"/><rect x="3" y="17" width="7" height="4"/><rect x="14" y="17" width="7" height="4"/><line x1="12" y1="3" x2="12" y2="21"/>
@@ -118,13 +117,7 @@
                 </svg>
                 <span>Reports</span>
             </a>
-            {% if current_user.role_exact in ('global_admin', 'owner') %}
-            <a href="{{ url_for('admin_users') }}" class="tab {% if request.endpoint in ('admin_users', 'admin_user_new', 'admin_user_edit') %}active{% endif %}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22">
-                    <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/>
-                </svg>
-                <span>Users</span>
-            </a>
+            {% if current_user.is_full_access %}
             <a href="{{ url_for('admin_settings') }}" class="tab {% if request.endpoint == 'admin_settings' %}active{% endif %}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22">
                     <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>

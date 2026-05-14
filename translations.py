@@ -49,6 +49,58 @@ def format_date_short(dt, lang='en'):
 
 TRANSLATIONS = {
     'en': {
+        # ── Shared baseline ───────────────────────────────────────────────────
+        # Buttons
+        'btn_save':       'Save',
+        'btn_cancel':     'Cancel',
+        'btn_delete':     'Delete',
+        'btn_edit':       'Edit',
+        'btn_add':        'Add',
+        'btn_back':       'Back',
+        'btn_confirm':    'Confirm',
+        'btn_create':     'Create',
+        'btn_update':     'Update',
+        'btn_close':      'Close',
+        'btn_search':     'Search',
+
+        # Common labels
+        'label_name':        'Name',
+        'label_email':       'Email',
+        'label_phone':       'Phone',
+        'label_date':        'Date',
+        'label_status':      'Status',
+        'label_actions':     'Actions',
+        'label_notes':       'Notes',
+        'label_price':       'Price',
+        'label_total':       'Total',
+        'label_description': 'Description',
+        'label_role':        'Role',
+        'label_type':        'Type',
+
+        # Status values
+        'status_active':    'Active',
+        'status_inactive':  'Inactive',
+        'status_pending':   'Pending',
+        'status_paid':      'Paid',
+        'status_cancelled': 'Cancelled',
+        'status_complete':  'Complete',
+
+        # Common UI
+        'no_results':     'No results found.',
+        'are_you_sure':   'Are you sure?',
+        'changes_saved':  'Changes saved.',
+        'error_generic':  'An error occurred.',
+        'field_required': 'Required',
+        'field_optional': 'Optional',
+        'loading':        'Loading…',
+
+        # Navigation
+        'nav_dashboard': 'Dashboard',
+        'nav_settings':  'Settings',
+        'nav_users':     'Users',
+        'nav_logout':    'Log out',
+
+        # ── App-specific ──────────────────────────────────────────────────────
         # Page / section titles
         'reserve_tickets': 'Reserve Tickets',
         'upcoming_events': 'Upcoming Events',
@@ -143,6 +195,58 @@ TRANSLATIONS = {
         'view_reservation': 'View Reservation',
     },
     'es': {
+        # ── Shared baseline ───────────────────────────────────────────────────
+        # Buttons
+        'btn_save':       'Guardar',
+        'btn_cancel':     'Cancelar',
+        'btn_delete':     'Eliminar',
+        'btn_edit':       'Editar',
+        'btn_add':        'Añadir',
+        'btn_back':       'Volver',
+        'btn_confirm':    'Confirmar',
+        'btn_create':     'Crear',
+        'btn_update':     'Actualizar',
+        'btn_close':      'Cerrar',
+        'btn_search':     'Buscar',
+
+        # Common labels
+        'label_name':        'Nombre',
+        'label_email':       'Email',
+        'label_phone':       'Teléfono',
+        'label_date':        'Fecha',
+        'label_status':      'Estado',
+        'label_actions':     'Acciones',
+        'label_notes':       'Notas',
+        'label_price':       'Precio',
+        'label_total':       'Total',
+        'label_description': 'Descripción',
+        'label_role':        'Rol',
+        'label_type':        'Tipo',
+
+        # Status values
+        'status_active':    'Activo',
+        'status_inactive':  'Inactivo',
+        'status_pending':   'Pendiente',
+        'status_paid':      'Pagado',
+        'status_cancelled': 'Cancelado',
+        'status_complete':  'Completado',
+
+        # Common UI
+        'no_results':     'No se encontraron resultados.',
+        'are_you_sure':   '¿Estás seguro?',
+        'changes_saved':  'Cambios guardados.',
+        'error_generic':  'Se produjo un error.',
+        'field_required': 'Obligatorio',
+        'field_optional': 'Opcional',
+        'loading':        'Cargando…',
+
+        # Navigation
+        'nav_dashboard': 'Panel',
+        'nav_settings':  'Configuración',
+        'nav_users':     'Usuarios',
+        'nav_logout':    'Cerrar sesión',
+
+        # ── App-specific ──────────────────────────────────────────────────────
         # Page / section titles
         'reserve_tickets': 'Reservar Entradas',
         'upcoming_events': 'Próximos Eventos',

@@ -39,7 +39,7 @@
     </div>
 </div>
 
-{% if reservation.status == 'pending' and current_user.is_cashier %}
+{% if reservation.status == 'pending' and current_user.can_mark_paid %}
 
     <div style="display: flex; gap: 10px; margin-bottom: 10px;">
         <form method="POST" action="{{ url_for('admin_scan_pay', reference_code=reservation.reference_code) }}" style="flex: 1;">
@@ -53,7 +53,7 @@
         </form>
     </div>
 
-    {% if current_user.is_event_manager %}
+    {% if current_user.can_comp %}
     <form method="POST" action="{{ url_for('admin_scan_comp', reference_code=reservation.reference_code) }}">
         <button type="submit" class="btn btn-surface" style="width: 100%; border: 1px solid var(--accent);"
                 onclick="return confirm('Mark as complimentary (0€)?')">
@@ -67,9 +67,9 @@
     {% if already_scanned %}
     <div class="flash flash-error">
         Already scanned in at {{ already_scanned.created_at.strftime('%H:%M on %d %b %Y') }}
-        {% if already_scanned.admin %}by {{ already_scanned.admin.name }}{% endif %}
+        {% if already_scanned.admin_id %}by {{ staff_names.get(already_scanned.admin_id, '—') }}{% endif %}
     </div>
-    {% elif current_user.is_event_security %}
+    {% elif current_user.can_admit %}
     <form method="POST" action="{{ url_for('admin_scan_admit', reference_code=reservation.reference_code) }}">
         <button type="submit" class="btn btn-success">Admit — {{ reservation.num_tickets }} ticket{% if reservation.num_tickets > 1 %}s{% endif %}</button>
     </form>
@@ -99,7 +99,7 @@
             <tr>
                 <td style="font-size: 0.75rem; white-space: nowrap;">{{ log.created_at.strftime('%a %d %b %Y, %H:%M:%S') }}</td>
                 <td><span class="badge badge-{% if log.action in ('paid', 'scanned_in', 'comp') %}paid{% elif log.action == 'cancelled' %}cancelled{% else %}pending{% endif %}">{{ log.action }}</span></td>
-                <td style="font-size: 0.8rem;">{{ log.admin.name if log.admin else '—' }}</td>
+                <td style="font-size: 0.8rem;">{{ staff_names.get(log.admin_id, '—') }}</td>
                 <td style="font-size: 0.8rem; color: var(--text3);">{{ log.notes or '' }}</td>
             </tr>
             {% endfor %}
