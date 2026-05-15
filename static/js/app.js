@@ -1,4 +1,29 @@
-/* VIP Promotions — minimal JS */
+/* EventManagement — app JS */
+
+// Light/dark theme toggle
+(function() {
+    var btn = document.getElementById('themeToggleBtn');
+    if (!btn) return;
+    var isLight = localStorage.getItem('sb_theme') === 'light';
+    function applyTheme(light) {
+        if (light) {
+            document.documentElement.classList.add('light-theme');
+            localStorage.setItem('sb_theme', 'light');
+            btn.textContent = '🌙';
+            btn.style.color = '';
+        } else {
+            document.documentElement.classList.remove('light-theme');
+            localStorage.setItem('sb_theme', 'dark');
+            btn.textContent = '☀';
+            btn.style.color = '#FF9F0A';
+        }
+    }
+    applyTheme(isLight);
+    btn.addEventListener('click', function() {
+        isLight = !isLight;
+        applyTheme(isLight);
+    });
+})();
 
 // Auto-dismiss flash messages after 5 seconds
 document.querySelectorAll('.flash').forEach(function(el) {
@@ -34,3 +59,24 @@ document.querySelectorAll('.flash').forEach(function(el) {
         if (dirty) { e.preventDefault(); e.returnValue = ''; }
     });
 })();
+
+// Hamburger nav toggle
+(function() {
+    var t = document.getElementById('navToggle');
+    if (t) t.addEventListener('click', function() {
+        document.getElementById('navLinks').classList.toggle('open');
+    });
+    document.addEventListener('click', function(e) {
+        var nav = document.getElementById('navLinks');
+        if (nav && !nav.contains(e.target) && e.target !== t) {
+            nav.classList.remove('open');
+        }
+    });
+})();
+
+// Collapsible cards
+document.querySelectorAll('.card-header').forEach(function(header) {
+    header.addEventListener('click', function() {
+        this.closest('.card').classList.toggle('expanded');
+    });
+});

@@ -4,7 +4,7 @@
 
 VIP Promotions is a ticket reservation system for venue events. Customers reserve tickets online (or by scanning a QR code on a poster), receive a reference code, then pay at the venue bar. Staff use the admin panel to manage events, process payments, and scan tickets at the door.
 
-**Live URL**: https://events.ego2.net
+**Live URL**: https://events.{org}.solstack.es
 
 ---
 
@@ -82,7 +82,7 @@ There are 5 user roles. Each role includes the permissions of all roles below it
 
 ## How to Log In
 
-1. Go to https://events.ego2.net/admin/login
+1. Go to https://events.{org}.solstack.es/admin/login
 2. Enter your email address in the "User" field
 3. Enter your password
 4. Click "Sign In"

@@ -5,7 +5,7 @@
 
 APP_DIR="/opt/eventmanagement"
 VENV="$APP_DIR/venv"
-DOMAIN="events.ego2.net"
+DOMAIN="events.solstack.es"
 PORT=5003
 
 echo "=== EventManagement VM Setup ==="
@@ -39,7 +39,7 @@ ExecStart=$VENV/bin/gunicorn -w 2 -b 127.0.0.1:$PORT "app:app" --timeout 120 --a
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
-Environment=APP_URL=https://events.ego2.net
+Environment=APP_URL=https://events.solstack.es
 Environment=SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 
 [Install]

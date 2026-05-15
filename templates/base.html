@@ -9,6 +9,7 @@
     <title>{% block title %}{{ app_settings.promo_display_name }}{% endblock %}</title>
     <link rel="manifest" href="{{ url_for('manifest_json') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script>if (localStorage.getItem('sb_theme') === 'light') document.documentElement.classList.add('light-theme');</script>
 </head>
 <body>
     <div id="app">
@@ -16,6 +17,7 @@
             <h1>{{ app_settings.promo_display_name }}</h1>
             {% if current_user.is_authenticated %}
             <div style="display: flex; align-items: center; gap: 12px;">
+                <button id="themeToggleBtn" aria-label="Toggle theme"></button>
                 <span style="font-size: 0.9rem; color: var(--text2);">{{ current_user.name }}</span>
                 <button class="nav-hamburger" id="navToggle" aria-label="Menu">
                     <span></span><span></span><span></span>
@@ -144,11 +146,5 @@
         </nav>
     </div>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-    <script>
-    var t = document.getElementById('navToggle');
-    if (t) t.addEventListener('click', function() {
-        document.getElementById('navLinks').classList.toggle('open');
-    });
-    </script>
 </body>
 </html>

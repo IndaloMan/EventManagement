@@ -12,7 +12,7 @@
 | QR | `qrcode` + Pillow |
 | Server | Gunicorn → Nginx reverse proxy → Certbot SSL |
 | Hosting | GCloud VM `skycam-worker-01` (34.154.177.76) |
-| Domain | `events.ego2.net` |
+| Domain | `events.{org}.solstack.es` |
 | Port | 5003 (internal), 443 (public via nginx) |
 
 ---
@@ -300,7 +300,7 @@ Client → Nginx (port 443, SSL) → Gunicorn (port 5003) → Flask app
 ### SSL
 - Certbot with nginx plugin
 - Auto-renewal via certbot timer
-- Domain: events.ego2.net
+- Domain: events.{org}.solstack.es
 
 ### Deployment Process
 1. Run `deploy.ps1` on Windows — stages files to `C:\Users\indal\deploy_em\`, SCPs to VM

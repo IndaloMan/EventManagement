@@ -4,7 +4,7 @@
 $SRC = "C:\Users\indal\OneDrive\My Documents\Spain\Tech\My Apps\EventManagement"
 $STAGING = "C:\Users\indal\deploy_em"
 $KEY = "C:\Users\indal\.ssh\google_compute_engine"
-$VM = "nhorncastle@34.154.177.76"
+$VM = "indal@34.154.177.76"
 $REMOTE = "/opt/eventmanagement"
 
 # Files to deploy

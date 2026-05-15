@@ -14,6 +14,16 @@
     --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+html.light-theme {
+    --bg: #ffffff;
+    --surface: #f2f2f7;
+    --surface2: #e5e5ea;
+    --text: #000000;
+    --text2: #000000;
+    --text3: #000000;
+    --border: #c6c6c8;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -438,6 +448,17 @@ body {
 .poster-zone:hover { border-color: var(--accent); }
 .poster-zone.has-image { border-style: solid; border-color: var(--accent); }
 .poster-zone img { max-width: 100%; border-radius: 14px; }
+
+/* Theme toggle icon button */
+#themeToggleBtn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.25rem;
+    line-height: 1;
+    padding: 2px;
+    user-select: none;
+}
 
 /* Hamburger — hidden on desktop */
 .nav-hamburger { display: none; }
