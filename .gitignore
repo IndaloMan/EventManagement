@@ -10,3 +10,9 @@ static/uploads/
 .env
 env.py
 .DS_Store
+
+# Claude Code local settings
+.claude/
+
+# Office temp lock files
+~$*
