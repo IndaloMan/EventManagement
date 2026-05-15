@@ -15,7 +15,7 @@
             document.documentElement.classList.remove('light-theme');
             localStorage.setItem('sb_theme', 'dark');
             btn.textContent = '☀';
-            btn.style.color = '#FF9F0A';
+            btn.style.color = '';
         }
     }
     applyTheme(isLight);
