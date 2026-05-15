@@ -201,7 +201,7 @@ body {
     cursor: pointer;
     transition: opacity 0.2s;
     text-decoration: none;
-    color: var(--text);
+    color: #ffffff;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
