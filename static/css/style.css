@@ -330,9 +330,9 @@ body {
     text-transform: uppercase;
 }
 
-.badge-pending { background: rgba(255, 159, 10, 0.15); color: var(--warning); }
-.badge-paid { background: rgba(48, 209, 88, 0.15); color: var(--accent2); }
-.badge-cancelled { background: rgba(255, 69, 58, 0.15); color: var(--danger); }
+.badge-pending { background: var(--warning); color: #ffffff; }
+.badge-paid { background: var(--accent2); color: #ffffff; }
+.badge-cancelled { background: var(--danger); color: #ffffff; }
 
 /* Admin table */
 .admin-table {
