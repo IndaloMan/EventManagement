@@ -14,7 +14,7 @@
         } else {
             document.documentElement.classList.remove('light-theme');
             localStorage.setItem('sb_theme', 'dark');
-            btn.textContent = '☀';
+            btn.textContent = '☀️';
             btn.style.color = '';
         }
     }
