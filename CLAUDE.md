@@ -109,7 +109,7 @@ templates/          — Jinja2 templates (base, public pages, admin pages)
 ## Current Status (14 May 2026)
 - SolStack SSO integration complete — all local auth removed, SessionUser pattern implemented
 - App starts cleanly, DB migration runs on startup (legacy tables dropped, new columns/tables added)
-- **NOT YET TESTED:** End-to-end SSO flow, role-scoping per role, event staff assignment UI — see `plan.md` in project root
+- **NOT YET TESTED:** End-to-end SSO flow, role-scoping per role, event staff assignment UI — see `docs/PLAN_SSO_INTEGRATION.md`
 - Git repo: https://github.com/IndaloMan/EventManagement (private)
 - NOT YET DONE: Google Calendar service account setup, GCloud deployment
 - Stripe payments implemented — requires Stripe keys configured in settings before use
