@@ -68,7 +68,7 @@ document.querySelectorAll('.flash').forEach(function(el) {
     });
     document.addEventListener('click', function(e) {
         var nav = document.getElementById('navLinks');
-        if (nav && !nav.contains(e.target) && e.target !== t) {
+        if (nav && !nav.contains(e.target) && !t.contains(e.target)) {
             nav.classList.remove('open');
         }
     });
