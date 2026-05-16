@@ -9,13 +9,13 @@
         if (light) {
             document.documentElement.classList.add('light-theme');
             localStorage.setItem('sb_theme', 'light');
-            btn.textContent = '🌙';
-            btn.style.color = '';
+            btn.textContent = '☽';
+            btn.style.color = '#1C3A6B';
         } else {
             document.documentElement.classList.remove('light-theme');
             localStorage.setItem('sb_theme', 'dark');
-            btn.textContent = '☀️';
-            btn.style.color = '';
+            btn.textContent = '☀';
+            btn.style.color = '#FF9F0A';
         }
     }
     applyTheme(isLight);

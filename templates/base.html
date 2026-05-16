@@ -15,15 +15,15 @@
     <div id="app">
         <header id="header">
             <h1>{{ app_settings.promo_display_name }}</h1>
-            {% if current_user.is_authenticated %}
             <div style="display: flex; align-items: center; gap: 12px;">
                 <button id="themeToggleBtn" aria-label="Toggle theme"></button>
+                {% if current_user.is_authenticated %}
                 <span style="font-size: 0.9rem; color: var(--text2);">{{ current_user.name }}</span>
                 <button class="nav-hamburger" id="navToggle" aria-label="Menu">
                     <span></span><span></span><span></span>
                 </button>
+                {% endif %}
             </div>
-            {% endif %}
         </header>
         <ul class="nav-links" id="navLinks">
             {% if current_user.is_authenticated %}
