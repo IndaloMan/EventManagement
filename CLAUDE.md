@@ -17,12 +17,12 @@ All authentication is via SolStack SSO — there are no local user accounts. Rol
 |---|---|
 | `global_admin` | Full access — all businesses, all events, settings (SolStack platform role) |
 | `org_owner` | Full access to everything in the org instance — same as global_admin within EventManagement |
-| `business_manager` | Full access to their location's business only (scoped by solstack_location_id) |
+| `staff_manager` | Full access to their location's business only (scoped by solstack_location_id) |
 | `staff_event` | Per-event assignment — can create and manage their assigned events + reservations |
 | `staff_security` | Per-event assignment — scan/admit at the door only |
 | `staff_bar` | Location-scoped — view all reservations for their location, mark as paid |
 
-`is_full_access` = global_admin, org_owner, business_manager (full admin panel access)  
+`is_full_access` = global_admin, org_owner, staff_manager (full admin panel access)  
 `staff_event` and `staff_security` are assigned per-event via the `event_staff` table.  
 `staff_bar` is location-scoped only (not per-event).
 
