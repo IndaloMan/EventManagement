@@ -486,7 +486,7 @@ body {
         display: block;
         width: 24px;
         height: 2px;
-        background: white;
+        background: var(--text);
         border-radius: 2px;
     }
 
@@ -530,4 +530,21 @@ body {
     }
 
     #app { position: relative; }
+}
+
+/* Password show/hide toggle */
+.password-field { position: relative; }
+.password-field input { padding-right: 44px; }
+.password-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text3);
+    padding: 0;
+    display: flex;
+    align-items: center;
 }

@@ -49,9 +49,12 @@
         </div>
         <div class="field-row">
             <label>App password</label>
-            <input type="password" name="smtp_password" value=""
-                   autocomplete="new-password"
-                   placeholder="{{ 'Leave blank to keep current' if settings.smtp_password else 'Optional' }}">
+            <div class="password-field">
+                <input type="password" name="smtp_password" value=""
+                       autocomplete="new-password"
+                       placeholder="{{ 'Leave blank to keep current' if settings.smtp_password else 'Optional' }}">
+                <button type="button" class="password-toggle" aria-label="Show password"><svg class="eye-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg class="eye-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
+            </div>
         </div>
         <div class="field-row">
             <label>Friendly name</label>
@@ -74,15 +77,21 @@
         </div>
         <div class="field-row">
             <label>Secret key</label>
-            <input type="password" name="stripe_secret_key"
-                   autocomplete="new-password"
-                   placeholder="{{ 'Leave blank to keep current' if settings.stripe_secret_key else 'sk_test_...' }}">
+            <div class="password-field">
+                <input type="password" name="stripe_secret_key"
+                       autocomplete="new-password"
+                       placeholder="{{ 'Leave blank to keep current' if settings.stripe_secret_key else 'sk_test_...' }}">
+                <button type="button" class="password-toggle" aria-label="Show password"><svg class="eye-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg class="eye-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
+            </div>
         </div>
         <div class="field-row">
             <label>Webhook secret</label>
-            <input type="password" name="stripe_webhook_secret"
-                   autocomplete="new-password"
-                   placeholder="{{ 'Leave blank to keep current' if settings.stripe_webhook_secret else 'whsec_... (optional)' }}">
+            <div class="password-field">
+                <input type="password" name="stripe_webhook_secret"
+                       autocomplete="new-password"
+                       placeholder="{{ 'Leave blank to keep current' if settings.stripe_webhook_secret else 'whsec_... (optional)' }}">
+                <button type="button" class="password-toggle" aria-label="Show password"><svg class="eye-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg class="eye-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
+            </div>
         </div>
     </div>
     <p style="font-size: 0.78rem; color: var(--text3); margin: -8px 0 16px;">

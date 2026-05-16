@@ -9,13 +9,13 @@
         if (light) {
             document.documentElement.classList.add('light-theme');
             localStorage.setItem('sb_theme', 'light');
-            btn.textContent = '☽';
-            btn.style.color = '#1C3A6B';
+            btn.textContent = '🌙';
+            btn.style.color = '';
         } else {
             document.documentElement.classList.remove('light-theme');
             localStorage.setItem('sb_theme', 'dark');
-            btn.textContent = '☀';
-            btn.style.color = '#FF9F0A';
+            btn.textContent = '☀️';
+            btn.style.color = '';
         }
     }
     applyTheme(isLight);
@@ -73,6 +73,18 @@ document.querySelectorAll('.flash').forEach(function(el) {
         }
     });
 })();
+
+// Password show/hide toggle
+document.querySelectorAll('.password-toggle').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        var input = this.parentElement.querySelector('input');
+        var show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        this.querySelector('.eye-show').style.display = show ? 'none' : '';
+        this.querySelector('.eye-hide').style.display = show ? '' : 'none';
+    });
+});
 
 // Collapsible cards
 document.querySelectorAll('.card-header').forEach(function(header) {
