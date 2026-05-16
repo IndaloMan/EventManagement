@@ -32,12 +32,12 @@ APP_SLUG = 'eventmanagement'
 
 class SessionUser(UserMixin):
     """Lightweight user object reconstructed from Flask session after SolStack SSO handoff."""
-    def __init__(self, user_id, name, email, app_role, location_id=None):
+    def __init__(self, user_id, name, email, app_role, business_id=None):
         self._id = int(user_id)
         self.name = name
         self.email = email
         self.role = app_role
-        self.location_id = location_id
+        self.business_id = business_id
 
     def get_id(self):
         return str(self._id)
@@ -96,7 +96,7 @@ def _validate_auth_token(token_str):
         conn = sqlite3.connect(SOLSTACK_DB_PATH)
         conn.row_factory = sqlite3.Row
         row = conn.execute(
-            "SELECT user_id, user_name, user_email, app_slug, app_role, location_id, "
+            "SELECT user_id, user_name, user_email, app_slug, app_role, business_id, "
             "expires_at, used FROM auth_tokens WHERE token = ?",
             (token_str,)
         ).fetchone()
@@ -115,7 +115,7 @@ def _validate_auth_token(token_str):
             'user_name': row['user_name'],
             'user_email': row['user_email'],
             'app_role': row['app_role'],
-            'location_id': row['location_id'],
+            'business_id': row['business_id'],
         }
     except Exception:
         return None
@@ -189,7 +189,7 @@ def load_user(user_id):
             name=session.get('user_name', ''),
             email=session.get('user_email', ''),
             app_role=session.get('app_role', ''),
-            location_id=session.get('location_id'),
+            business_id=session.get('business_id'),
         )
     return None
 
@@ -230,13 +230,13 @@ def staff_event_or_above(f):
 
 
 def _get_scoped_business():
-    """Returns the Business for current user's location, or None for full-access users."""
+    """Returns the Business for current user's business, or None for full-access users."""
     if current_user.is_full_access:
         return None
-    loc_id = session.get('location_id')
-    if not loc_id:
+    biz_id = session.get('business_id')
+    if not biz_id:
         return None
-    return Business.query.filter_by(solstack_location_id=loc_id, is_active=True).first()
+    return Business.query.filter_by(solstack_business_id=biz_id, is_active=True).first()
 
 
 def _get_accessible_businesses():
@@ -656,13 +656,13 @@ def auth_callback():
     session['user_name'] = user_info['user_name']
     session['user_email'] = user_info['user_email']
     session['app_role'] = user_info['app_role']
-    session['location_id'] = user_info['location_id']
+    session['business_id'] = user_info['business_id']
     user_obj = SessionUser(
         user_id=user_info['user_id'],
         name=user_info['user_name'],
         email=user_info['user_email'],
         app_role=user_info['app_role'],
-        location_id=user_info['location_id'],
+        business_id=user_info['business_id'],
     )
     login_user(user_obj)
     next_url = session.pop('auth_next', None) or _post_login_url()
@@ -1617,10 +1617,10 @@ def init_db():
     with app.app_context():
         db.create_all()
         with db.engine.connect() as conn:
-            # Migrate businesses: add solstack_location_id if missing
+            # Migrate businesses: add solstack_business_id if missing
             biz_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(businesses)"))]
-            if 'solstack_location_id' not in biz_cols:
-                conn.execute(db.text("ALTER TABLE businesses ADD COLUMN solstack_location_id INTEGER"))
+            if 'solstack_business_id' not in biz_cols:
+                conn.execute(db.text("ALTER TABLE businesses ADD COLUMN solstack_business_id INTEGER"))
                 conn.commit()
             event_cols = [r[1] for r in conn.execute(db.text("PRAGMA table_info(events)"))]
             if 'end_time_text' not in event_cols:

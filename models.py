@@ -22,7 +22,7 @@ class Business(db.Model):
     stripe_publishable_key = db.Column(db.String(256))
     stripe_secret_key = db.Column(db.String(256))
     stripe_webhook_secret = db.Column(db.String(256))
-    solstack_location_id = db.Column(db.Integer)
+    solstack_business_id = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     events = db.relationship('Event', backref='business', lazy=True)
 

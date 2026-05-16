@@ -17,14 +17,14 @@ All authentication is via SolStack SSO — there are no local user accounts. Rol
 |---|---|
 | `global_admin` | Full access — all businesses, all events, settings (SolStack platform role) |
 | `org_owner` | Full access to everything in the org instance — same as global_admin within EventManagement |
-| `staff_manager` | Full access to their location's business only (scoped by solstack_location_id) |
+| `staff_manager` | Full access to their business only (scoped by solstack_business_id) |
 | `staff_event` | Per-event assignment — can create and manage their assigned events + reservations |
 | `staff_security` | Per-event assignment — scan/admit at the door only |
-| `staff_bar` | Location-scoped — view all reservations for their location, mark as paid |
+| `staff_bar` | Business-scoped — view all reservations for their business, mark as paid |
 
 `is_full_access` = global_admin, org_owner, staff_manager (full admin panel access)  
 `staff_event` and `staff_security` are assigned per-event via the `event_staff` table.  
-`staff_bar` is location-scoped only (not per-event).
+`staff_bar` is business-scoped only (not per-event).
 
 ## Reservation Flow
 1. Admin creates event in Google Calendar
@@ -37,7 +37,7 @@ All authentication is via SolStack SSO — there are no local user accounts. Rol
 8. **Both mode:** User chooses online or at-the-bar at reservation time.
 
 ## Database Tables
-- `businesses` — name, slug, address, phone, email, website, google_calendar_id, logo, **solstack_location_id** (links to SolStack Location)
+- `businesses` — name, slug, address, phone, email, website, google_calendar_id, logo, **solstack_business_id** (links to SolStack Business)
 - `events` — business_id, gcal_event_id, event_code (6-char unique ID), title, dates, price, capacity, includes, dress_code, poster, terms, is_active, payment_mode (cash/stripe/both)
 - `event_staff` — per-event staff assignments: event_id, solstack_user_id, role (staff_event/staff_security), name (snapshot), email
 - `reservations` — event_id, reference_code, name, email, phone, num_tickets, status (pending/paid/cancelled), is_comp, stripe_payment_intent_id
@@ -96,7 +96,7 @@ templates/          — Jinja2 templates (base, public pages, admin pages)
 
 ## Key Behaviours
 - **SSO auth:** `_validate_auth_token()` reads `solstack.db` directly to validate one-use 5-minute TTL tokens. `SessionUser` rebuilt from Flask session on each request (no local DB query). `APP_SLUG = 'eventmanagement'`.
-- **Scoping:** `_get_scoped_business()` returns None for full_access roles (no filter), or the business matching `session['location_id']` for location-scoped roles. `_get_accessible_events()` returns all events in scope, or only EventStaff-assigned events for staff_event/staff_security.
+- **Scoping:** `_get_scoped_business()` returns None for full_access roles (no filter), or the business matching `session['business_id']` for business-scoped roles. `_get_accessible_events()` returns all events in scope, or only EventStaff-assigned events for staff_event/staff_security.
 - **Audit trail names:** `admin_id` on `reservation_logs` stores SolStack user_id (integer). Templates use a `staff_names = {id: name}` dict passed from the route handler via `_get_solstack_users_for_app()`.
 - **Euro formatting:** `fmt_eur` Jinja2 filter — strips trailing zeros (35.0 → 35, 35.5 → 35.5)
 - **Comp tickets:** `is_comp=True` on a reservation excludes it from revenue reports; requires `is_full_access` to apply
