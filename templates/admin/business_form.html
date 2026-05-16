@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{% if business %}Edit {{ business.name }}{% else %}New Business{% endif %} — Admin{% endblock %}
+{% block title %}{% if business %}Edit {{ business.name }}{% else %}New Business{% endif %} — {{ app_settings.promo_display_name }}{% endblock %}
 {% block content %}
 <p class="section-title">{% if business %}Edit Business{% else %}New Business{% endif %}</p>
 
