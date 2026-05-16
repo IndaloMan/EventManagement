@@ -55,12 +55,12 @@ class SessionUser(UserMixin):
         return self.role in ('global_admin', 'org_owner')
 
     @property
-    def is_business_manager(self):
-        return self.role in ('global_admin', 'org_owner', 'business_manager')
+    def is_staff_manager(self):
+        return self.role in ('global_admin', 'org_owner', 'staff_manager')
 
     @property
     def is_full_access(self):
-        return self.role in ('global_admin', 'org_owner', 'business_manager')
+        return self.role in ('global_admin', 'org_owner', 'staff_manager')
 
     @property
     def is_staff_event(self):
@@ -76,15 +76,15 @@ class SessionUser(UserMixin):
 
     @property
     def can_mark_paid(self):
-        return self.role in ('global_admin', 'org_owner', 'business_manager', 'staff_event', 'staff_bar')
+        return self.role in ('global_admin', 'org_owner', 'staff_manager', 'staff_event', 'staff_bar')
 
     @property
     def can_admit(self):
-        return self.role in ('global_admin', 'org_owner', 'business_manager', 'staff_event', 'staff_security')
+        return self.role in ('global_admin', 'org_owner', 'staff_manager', 'staff_event', 'staff_security')
 
     @property
     def can_comp(self):
-        return self.role in ('global_admin', 'org_owner', 'business_manager', 'staff_event')
+        return self.role in ('global_admin', 'org_owner', 'staff_manager', 'staff_event')
 
     def role_display(self):
         return self.role.replace('_', ' ').title()
@@ -208,7 +208,7 @@ def global_admin_required(f):
 
 
 def full_access_required(f):
-    """Requires global_admin, org_owner, or business_manager."""
+    """Requires global_admin, org_owner, or staff_manager."""
     @wraps(f)
     def decorated(*args, **kwargs):
         if not current_user.is_authenticated or not current_user.is_full_access:
