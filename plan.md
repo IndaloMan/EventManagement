@@ -38,7 +38,7 @@ python app.py
 1. Go to http://localhost:5004/admin (log in as global admin)
 2. Navigate to Apps
 3. Confirm `Event Management` appears with slug `eventmanagement`
-4. Confirm available roles include: `staff_event`, `staff_security`, `staff_bar`, `business_manager`, `org_owner`
+4. Confirm available roles include: `staff_event`, `staff_security`, `staff_bar`, `staff_manager`, `org_owner`
 
 ---
 
@@ -109,16 +109,16 @@ Log in via SolStack as a user with `global_admin` or `org_owner` role on the `ev
 
 ---
 
-## 4. Role: business_manager
+## 4. Role: staff_manager
 
 **Goal:** Full access to their location's business only — cannot see other businesses.
 
-Log in via SolStack as a user with `business_manager` role assigned to one specific business location.
+Log in via SolStack as a user with `staff_manager` role assigned to one specific business location.
 
 ### 4.1 Navigation
 - Go to http://localhost:5000/admin
 - **Expected:** Hamburger menu shows: Dashboard, Events, Reservations, Scan, Reports, Settings
-- Businesses link must **NOT** appear (business_manager cannot manage other businesses)
+- Businesses link must **NOT** appear (staff_manager cannot manage other businesses)
 
 ### 4.2 Events scoped to location
 - Go to http://localhost:5000/admin/events
@@ -134,7 +134,7 @@ Log in via SolStack as a user with `business_manager` role assigned to one speci
 
 ### 4.5 Staff assignment still visible
 - Go to an event detail page for their location
-- **Expected:** Staff assignment section visible (business_manager has full_access)
+- **Expected:** Staff assignment section visible (staff_manager has full_access)
 
 ---
 
@@ -340,7 +340,7 @@ Only run if Stripe publishable key and secret key are set in Settings.
 | 2.4 | Session persistence | | |
 | 2.5 | Logout | | |
 | 3.1–3.6 | global_admin full access | | |
-| 4.1–4.5 | business_manager scoped access | | |
+| 4.1–4.5 | staff_manager scoped access | | |
 | 5.1–5.5 | staff_event scoped access | | |
 | 6.1–6.5 | staff_security scan only | | |
 | 7.1–7.4 | staff_bar reservations access | | |
